@@ -100,6 +100,28 @@ describe("loadConfig", () => {
     loadConfig()
     expect(process.env["OTEL_EXPORTER_OTLP_HEADERS"]).toBeUndefined()
   })
+
+  test("does not overwrite pre-existing OTEL_* vars when OPENCODE_* vars are unset", () => {
+    process.env["OTEL_EXPORTER_OTLP_HEADERS"] = "existing-header=value"
+    process.env["OTEL_RESOURCE_ATTRIBUTES"] = "existing=attr"
+    loadConfig()
+    expect(process.env["OTEL_EXPORTER_OTLP_HEADERS"]).toBe("existing-header=value")
+    expect(process.env["OTEL_RESOURCE_ATTRIBUTES"]).toBe("existing=attr")
+  })
+
+  test("OPENCODE_OTLP_HEADERS overwrites pre-existing OTEL_EXPORTER_OTLP_HEADERS", () => {
+    process.env["OTEL_EXPORTER_OTLP_HEADERS"] = "old-header=old"
+    process.env["OPENCODE_OTLP_HEADERS"] = "new-header=new"
+    loadConfig()
+    expect(process.env["OTEL_EXPORTER_OTLP_HEADERS"]).toBe("new-header=new")
+  })
+
+  test("OPENCODE_RESOURCE_ATTRIBUTES overwrites pre-existing OTEL_RESOURCE_ATTRIBUTES", () => {
+    process.env["OTEL_RESOURCE_ATTRIBUTES"] = "old=attr"
+    process.env["OPENCODE_RESOURCE_ATTRIBUTES"] = "new=attr"
+    loadConfig()
+    expect(process.env["OTEL_RESOURCE_ATTRIBUTES"]).toBe("new=attr")
+  })
 })
 
 describe("resolveLogLevel", () => {
