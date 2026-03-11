@@ -8,6 +8,7 @@ An [opencode](https://opencode.ai) plugin that exports telemetry via OpenTelemet
 - [Installation](#installation)
 - [Configuration](#configuration)
   - [Quick start](#quick-start)
+  - [Headers and resource attributes](#headers-and-resource-attributes)
   - [Datadog example](#datadog-example)
   - [Honeycomb example](#honeycomb-example)
   - [Claude Code dashboard compatibility](#claude-code-dashboard-compatibility)
@@ -71,8 +72,20 @@ All configuration is via environment variables. Set them in your shell profile (
 | `OPENCODE_OTLP_METRICS_INTERVAL` | `60000` | Metrics export interval in milliseconds |
 | `OPENCODE_OTLP_LOGS_INTERVAL` | `5000` | Logs export interval in milliseconds |
 | `OPENCODE_METRIC_PREFIX` | `opencode.` | Prefix for all metric names (e.g. set to `claude_code.` for Claude Code dashboard compatibility) |
-| `OPENCODE_OTLP_HEADERS` | _(unset)_ | Comma-separated `key=value` headers added to all OTLP exports (e.g. for auth tokens) |
-| `OPENCODE_RESOURCE_ATTRIBUTES` | _(unset)_ | Comma-separated `key=value` pairs merged into the OTel resource |
+| `OPENCODE_OTLP_HEADERS` | _(unset)_ | Comma-separated `key=value` headers added to all OTLP exports. Example: `api-key=abc123,x-tenant=my-org`. **Keep out of version control — may contain sensitive auth tokens.** |
+| `OPENCODE_RESOURCE_ATTRIBUTES` | _(unset)_ | Comma-separated `key=value` pairs merged into the OTel resource. Example: `service.version=1.2.3,deployment.environment=production` |
+
+### Headers and resource attributes
+
+```bash
+# Auth token for a managed collector (e.g. Honeycomb, Grafana Cloud)
+export OPENCODE_OTLP_HEADERS="x-honeycomb-team=your-api-key,x-honeycomb-dataset=opencode"
+
+# Tag every metric and log with deployment context
+export OPENCODE_RESOURCE_ATTRIBUTES="service.version=1.2.3,deployment.environment=production"
+```
+
+> **Security note:** `OPENCODE_OTLP_HEADERS` typically contains auth tokens. Set it in your shell profile (`~/.zshrc`, `~/.bashrc`) or a secrets manager — never commit it to version control or print it in CI logs.
 
 ### Quick start
 
