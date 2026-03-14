@@ -1,13 +1,14 @@
 import { SeverityNumber } from "@opentelemetry/api-logs"
-import type { EventSessionCreated, EventSessionIdle, EventSessionError } from "@opencode-ai/sdk"
-import { errorSummary } from "../util.ts"
+import type { EventSessionCreated, EventSessionIdle, EventSessionError, EventSessionStatus } from "@opencode-ai/sdk"
+import { errorSummary, setBoundedMap } from "../util.ts"
 import type { HandlerContext } from "../types.ts"
 
-/** Increments the session counter and emits a `session.created` log event. */
+/** Increments the session counter, records start time, and emits a `session.created` log event. */
 export function handleSessionCreated(e: EventSessionCreated, ctx: HandlerContext) {
   const sessionID = e.properties.info.id
   const createdAt = e.properties.info.time.created
   ctx.instruments.sessionCounter.add(1, { ...ctx.commonAttrs, "session.id": sessionID })
+  setBoundedMap(ctx.sessionTotals, sessionID, { startMs: createdAt, tokens: 0, cost: 0, messages: 0 })
   ctx.logger.emit({
     severityNumber: SeverityNumber.INFO,
     severityText: "INFO",
@@ -16,7 +17,7 @@ export function handleSessionCreated(e: EventSessionCreated, ctx: HandlerContext
     body: "session.created",
     attributes: { "event.name": "session.created", "session.id": sessionID, ...ctx.commonAttrs },
   })
-  return ctx.log("info", "otel: session.created", { sessionID })
+  return ctx.log("info", "otel: session.created", { sessionID, createdAt })
 }
 
 function sweepSession(sessionID: string, ctx: HandlerContext) {
@@ -28,23 +29,50 @@ function sweepSession(sessionID: string, ctx: HandlerContext) {
   }
 }
 
-/** Emits a `session.idle` log event and clears any pending tool spans and permissions for the session. */
+/** Emits a `session.idle` log event, records duration and session total histograms, and clears pending state. */
 export function handleSessionIdle(e: EventSessionIdle, ctx: HandlerContext) {
   const sessionID = e.properties.sessionID
+  const totals = ctx.sessionTotals.get(sessionID)
+  ctx.sessionTotals.delete(sessionID)
   sweepSession(sessionID, ctx)
+
+  const attrs = { ...ctx.commonAttrs, "session.id": sessionID }
+  let duration_ms: number | undefined
+
+  if (totals) {
+    duration_ms = Date.now() - totals.startMs
+    ctx.instruments.sessionDurationHistogram.record(duration_ms, attrs)
+    ctx.instruments.sessionTokenGauge.record(totals.tokens, attrs)
+    ctx.instruments.sessionCostGauge.record(totals.cost, attrs)
+  }
+
   ctx.logger.emit({
     severityNumber: SeverityNumber.INFO,
     severityText: "INFO",
     timestamp: Date.now(),
     observedTimestamp: Date.now(),
     body: "session.idle",
-    attributes: { "event.name": "session.idle", "session.id": sessionID, ...ctx.commonAttrs },
+    attributes: {
+      "event.name": "session.idle",
+      "session.id": sessionID,
+      total_tokens: totals?.tokens ?? 0,
+      total_cost_usd: totals?.cost ?? 0,
+      total_messages: totals?.messages ?? 0,
+      ...ctx.commonAttrs,
+    },
+  })
+  ctx.log("debug", "otel: session.idle", {
+    sessionID,
+    ...(totals ? { duration_ms, total_tokens: totals.tokens, total_cost_usd: totals.cost, total_messages: totals.messages } : {}),
   })
 }
 
 /** Emits a `session.error` log event and clears any pending tool spans and permissions for the session. */
 export function handleSessionError(e: EventSessionError, ctx: HandlerContext) {
-  const sessionID = e.properties.sessionID ?? "unknown"
+  const rawID = e.properties.sessionID
+  const sessionID = rawID ?? "unknown"
+  const error = errorSummary(e.properties.error)
+  if (rawID) ctx.sessionTotals.delete(rawID)
   sweepSession(sessionID, ctx)
   ctx.logger.emit({
     severityNumber: SeverityNumber.ERROR,
@@ -55,8 +83,18 @@ export function handleSessionError(e: EventSessionError, ctx: HandlerContext) {
     attributes: {
       "event.name": "session.error",
       "session.id": sessionID,
-      error: errorSummary(e.properties.error),
+      error,
       ...ctx.commonAttrs,
     },
   })
+  ctx.log("error", "otel: session.error", { sessionID, error })
+}
+
+/** Increments the retry counter when the session enters a retry state. */
+export function handleSessionStatus(e: EventSessionStatus, ctx: HandlerContext) {
+  if (e.properties.status.type !== "retry") return
+  const { sessionID, status } = e.properties
+  const { attempt, message: retryMessage } = status
+  ctx.instruments.retryCounter.add(1, { ...ctx.commonAttrs, "session.id": sessionID })
+  ctx.log("debug", "otel: retry counter incremented", { sessionID, attempt, retryMessage })
 }

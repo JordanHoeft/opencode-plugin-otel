@@ -42,6 +42,21 @@ export type Instruments = {
   linesCounter: Counter
   commitCounter: Counter
   toolDurationHistogram: Histogram
+  cacheCounter: Counter
+  sessionDurationHistogram: Histogram
+  messageCounter: Counter
+  sessionTokenGauge: Histogram
+  sessionCostGauge: Histogram
+  modelUsageCounter: Counter
+  retryCounter: Counter
+}
+
+/** Accumulated per-session totals used for gauge snapshots on session.idle. */
+export type SessionTotals = {
+  startMs: number
+  tokens: number
+  cost: number
+  messages: number
 }
 
 /** Shared context threaded through every event handler. */
@@ -52,4 +67,5 @@ export type HandlerContext = {
   commonAttrs: CommonAttrs
   pendingToolSpans: Map<string, PendingToolSpan>
   pendingPermissions: Map<string, PendingPermission>
+  sessionTotals: Map<string, SessionTotals>
 }

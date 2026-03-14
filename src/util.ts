@@ -1,4 +1,5 @@
 import { MAX_PENDING } from "./types.ts"
+import type { HandlerContext } from "./types.ts"
 
 /** Returns a human-readable summary string from an opencode error object. */
 export function errorSummary(err: { name: string; data?: unknown } | undefined): string {
@@ -19,4 +20,25 @@ export function setBoundedMap<K, V>(map: Map<K, V>, key: K, value: V) {
     if (firstKey !== undefined) map.delete(firstKey)
   }
   map.set(key, value)
+}
+
+/**
+ * Accumulates token and cost totals for a session, and increments the message count.
+ * Uses `setBoundedMap` to produce a new object rather than mutating in-place.
+ * No-ops silently if the session was not previously registered via `handleSessionCreated`.
+ */
+export function accumulateSessionTotals(
+  sessionID: string,
+  tokens: number,
+  cost: number,
+  ctx: HandlerContext,
+) {
+  const existing = ctx.sessionTotals.get(sessionID)
+  if (!existing) return
+  setBoundedMap(ctx.sessionTotals, sessionID, {
+    startMs: existing.startMs,
+    tokens: existing.tokens + tokens,
+    cost: existing.cost + cost,
+    messages: existing.messages + 1,
+  })
 }

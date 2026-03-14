@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test"
-import { handleSessionCreated, handleSessionIdle, handleSessionError } from "../../src/handlers/session.ts"
+import { handleSessionCreated, handleSessionIdle, handleSessionError, handleSessionStatus } from "../../src/handlers/session.ts"
 import { makeCtx } from "../helpers.ts"
-import type { EventSessionCreated, EventSessionIdle, EventSessionError } from "@opencode-ai/sdk"
+import type { EventSessionCreated, EventSessionIdle, EventSessionError, EventSessionStatus } from "@opencode-ai/sdk"
 
 function makeSessionCreated(sessionID: string, createdAt = 1000): EventSessionCreated {
   return {
@@ -26,6 +26,10 @@ function makeSessionError(sessionID: string, error?: { name: string }): EventSes
     type: "session.error",
     properties: { sessionID, error },
   } as unknown as EventSessionError
+}
+
+function makeSessionStatus(sessionID: string, status: { type: "retry"; attempt: number; message: string; next: number } | { type: "busy" } | { type: "idle" }): EventSessionStatus {
+  return { type: "session.status", properties: { sessionID, status } } as unknown as EventSessionStatus
 }
 
 describe("handleSessionCreated", () => {
@@ -62,6 +66,17 @@ describe("handleSessionCreated", () => {
     await handleSessionCreated(makeSessionCreated("ses_1"), ctx)
     expect(counters.session.calls.at(0)!.attrs["project.id"]).toBe("proj_abc")
   })
+
+  test("stores session totals with startMs", async () => {
+    const { ctx } = makeCtx()
+    await handleSessionCreated(makeSessionCreated("ses_1", 5000), ctx)
+    expect(ctx.sessionTotals.has("ses_1")).toBe(true)
+    const totals = ctx.sessionTotals.get("ses_1")!
+    expect(totals.startMs).toBe(5000)
+    expect(totals.tokens).toBe(0)
+    expect(totals.cost).toBe(0)
+    expect(totals.messages).toBe(0)
+  })
 })
 
 describe("handleSessionIdle", () => {
@@ -91,6 +106,53 @@ describe("handleSessionIdle", () => {
     expect(ctx.pendingToolSpans.has("ses_1:call_1")).toBe(false)
     expect(ctx.pendingToolSpans.has("ses_other:call_2")).toBe(true)
   })
+
+  test("records session duration histogram when totals exist", async () => {
+    const { ctx, histograms } = makeCtx()
+    await handleSessionCreated(makeSessionCreated("ses_1", Date.now() - 1000), ctx)
+    handleSessionIdle(makeSessionIdle("ses_1"), ctx)
+    expect(histograms.sessionDuration.calls).toHaveLength(1)
+    expect(histograms.sessionDuration.calls.at(0)!.value).toBeGreaterThan(0)
+    expect(histograms.sessionDuration.calls.at(0)!.attrs["session.id"]).toBe("ses_1")
+  })
+
+  test("records session token and cost histograms when totals exist", async () => {
+    const { ctx, gauges } = makeCtx()
+    await handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    ctx.sessionTotals.set("ses_1", { startMs: Date.now() - 500, tokens: 150, cost: 0.03, messages: 2 })
+    handleSessionIdle(makeSessionIdle("ses_1"), ctx)
+    expect(gauges.sessionToken.calls).toHaveLength(1)
+    expect(gauges.sessionToken.calls.at(0)!.value).toBe(150)
+    expect(gauges.sessionCost.calls).toHaveLength(1)
+    expect(gauges.sessionCost.calls.at(0)!.value).toBe(0.03)
+  })
+
+  test("emits total_tokens and total_messages in log record attributes", async () => {
+    const { ctx, logger } = makeCtx()
+    await handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    ctx.sessionTotals.set("ses_1", { startMs: Date.now() - 100, tokens: 200, cost: 0.05, messages: 3 })
+    handleSessionIdle(makeSessionIdle("ses_1"), ctx)
+    const record = logger.records.find(r => r.body === "session.idle")!
+    expect(record.attributes?.["total_tokens"]).toBe(200)
+    expect(record.attributes?.["total_cost_usd"]).toBe(0.05)
+    expect(record.attributes?.["total_messages"]).toBe(3)
+  })
+
+  test("does not record histograms when no prior session.created", () => {
+    const { ctx, histograms, gauges } = makeCtx()
+    handleSessionIdle(makeSessionIdle("ses_unknown"), ctx)
+    expect(histograms.sessionDuration.calls).toHaveLength(0)
+    expect(gauges.sessionToken.calls).toHaveLength(0)
+    expect(gauges.sessionCost.calls).toHaveLength(0)
+  })
+
+  test("removes sessionTotals entry on idle", async () => {
+    const { ctx } = makeCtx()
+    await handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    expect(ctx.sessionTotals.has("ses_1")).toBe(true)
+    handleSessionIdle(makeSessionIdle("ses_1"), ctx)
+    expect(ctx.sessionTotals.has("ses_1")).toBe(false)
+  })
 })
 
 describe("handleSessionError", () => {
@@ -116,5 +178,42 @@ describe("handleSessionError", () => {
     handleSessionError(makeSessionError("ses_1"), ctx)
     expect(ctx.pendingPermissions.size).toBe(0)
     expect(ctx.pendingToolSpans.size).toBe(0)
+  })
+
+  test("removes sessionTotals entry on error when sessionID is known", async () => {
+    const { ctx } = makeCtx()
+    await handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    expect(ctx.sessionTotals.has("ses_1")).toBe(true)
+    handleSessionError(makeSessionError("ses_1"), ctx)
+    expect(ctx.sessionTotals.has("ses_1")).toBe(false)
+  })
+
+  test("does not delete sessionTotals when sessionID is undefined", async () => {
+    const { ctx } = makeCtx()
+    await handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    handleSessionError({ type: "session.error", properties: {} } as unknown as EventSessionError, ctx)
+    expect(ctx.sessionTotals.has("ses_1")).toBe(true)
+  })
+})
+
+describe("handleSessionStatus", () => {
+  test("increments retry counter on retry status", () => {
+    const { ctx, counters } = makeCtx()
+    handleSessionStatus(makeSessionStatus("ses_1", { type: "retry", attempt: 1, message: "rate limited", next: 5000 }), ctx)
+    expect(counters.retry.calls).toHaveLength(1)
+    expect(counters.retry.calls.at(0)!.value).toBe(1)
+    expect(counters.retry.calls.at(0)!.attrs["session.id"]).toBe("ses_1")
+  })
+
+  test("ignores busy status", () => {
+    const { ctx, counters } = makeCtx()
+    handleSessionStatus(makeSessionStatus("ses_1", { type: "busy" }), ctx)
+    expect(counters.retry.calls).toHaveLength(0)
+  })
+
+  test("ignores idle status", () => {
+    const { ctx, counters } = makeCtx()
+    handleSessionStatus(makeSessionStatus("ses_1", { type: "idle" }), ctx)
+    expect(counters.retry.calls).toHaveLength(0)
   })
 })

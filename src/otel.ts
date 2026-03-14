@@ -105,5 +105,33 @@ export function createInstruments(prefix: string): Instruments {
       unit: "ms",
       description: "Duration of tool executions in milliseconds",
     }),
+    cacheCounter: meter.createCounter(`${prefix}cache.count`, {
+      unit: "count",
+      description: "Token cache hits (read) and misses (write) per completed assistant message",
+    }),
+    sessionDurationHistogram: meter.createHistogram(`${prefix}session.duration`, {
+      unit: "ms",
+      description: "Duration of a session from created to idle in milliseconds",
+    }),
+    messageCounter: meter.createCounter(`${prefix}message.count`, {
+      unit: "count",
+      description: "Number of completed assistant messages per session",
+    }),
+    sessionTokenGauge: meter.createHistogram(`${prefix}session.token.total`, {
+      unit: "tokens",
+      description: "Total tokens consumed per session, recorded as a histogram on session idle",
+    }),
+    sessionCostGauge: meter.createHistogram(`${prefix}session.cost.total`, {
+      unit: "USD",
+      description: "Total cost per session in USD, recorded as a histogram on session idle",
+    }),
+    modelUsageCounter: meter.createCounter(`${prefix}model.usage`, {
+      unit: "count",
+      description: "Number of completed assistant messages per model and provider",
+    }),
+    retryCounter: meter.createCounter(`${prefix}retry.count`, {
+      unit: "count",
+      description: "Number of API retries observed via session.status events",
+    }),
   }
 }
