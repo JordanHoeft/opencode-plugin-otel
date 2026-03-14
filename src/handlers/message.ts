@@ -1,7 +1,6 @@
 import { SeverityNumber } from "@opentelemetry/api-logs"
 import type { AssistantMessage, EventMessageUpdated, EventMessagePartUpdated, ToolPart } from "@opencode-ai/sdk"
-import { errorSummary } from "../util.ts"
-import { setBoundedMap } from "../util.ts"
+import { errorSummary, setBoundedMap, accumulateSessionTotals } from "../util.ts"
 import type { HandlerContext } from "../types.ts"
 
 /**
@@ -18,12 +17,37 @@ export function handleMessageUpdated(e: EventMessageUpdated, ctx: HandlerContext
   const duration = assistant.time.completed - assistant.time.created
   const { tokenCounter, costCounter } = ctx.instruments
 
+  const totalTokens = assistant.tokens.input + assistant.tokens.output + assistant.tokens.reasoning
+    + assistant.tokens.cache.read + assistant.tokens.cache.write
   tokenCounter.add(assistant.tokens.input, { ...ctx.commonAttrs, "session.id": sessionID, model: modelID, type: "input" })
   tokenCounter.add(assistant.tokens.output, { ...ctx.commonAttrs, "session.id": sessionID, model: modelID, type: "output" })
   tokenCounter.add(assistant.tokens.reasoning, { ...ctx.commonAttrs, "session.id": sessionID, model: modelID, type: "reasoning" })
   tokenCounter.add(assistant.tokens.cache.read, { ...ctx.commonAttrs, "session.id": sessionID, model: modelID, type: "cacheRead" })
   tokenCounter.add(assistant.tokens.cache.write, { ...ctx.commonAttrs, "session.id": sessionID, model: modelID, type: "cacheCreation" })
   costCounter.add(assistant.cost, { ...ctx.commonAttrs, "session.id": sessionID, model: modelID })
+
+  if (assistant.tokens.cache.read > 0) {
+    ctx.instruments.cacheCounter.add(1, { ...ctx.commonAttrs, "session.id": sessionID, model: modelID, type: "cacheRead" })
+  }
+  if (assistant.tokens.cache.write > 0) {
+    ctx.instruments.cacheCounter.add(1, { ...ctx.commonAttrs, "session.id": sessionID, model: modelID, type: "cacheCreation" })
+  }
+
+  ctx.instruments.messageCounter.add(1, { ...ctx.commonAttrs, "session.id": sessionID, model: modelID })
+  ctx.instruments.modelUsageCounter.add(1, { ...ctx.commonAttrs, "session.id": sessionID, model: modelID, provider: providerID })
+
+  accumulateSessionTotals(sessionID, totalTokens, assistant.cost, ctx)
+
+  ctx.log("debug", "otel: token+cost counters incremented", {
+    sessionID,
+    model: modelID,
+    input: assistant.tokens.input,
+    output: assistant.tokens.output,
+    reasoning: assistant.tokens.reasoning,
+    cacheRead: assistant.tokens.cache.read,
+    cacheWrite: assistant.tokens.cache.write,
+    cost_usd: assistant.cost,
+  })
 
   if (assistant.error) {
     ctx.logger.emit({
@@ -98,6 +122,7 @@ export function handleMessagePartUpdated(e: EventMessagePartUpdated, ctx: Handle
       sessionID: toolPart.sessionID,
       startMs: toolPart.state.time.start,
     })
+    ctx.log("debug", "otel: tool span started", { sessionID: toolPart.sessionID, tool: toolPart.tool, key })
     return
   }
 
@@ -137,6 +162,12 @@ export function handleMessagePartUpdated(e: EventMessagePartUpdated, ctx: Handle
       ...sizeAttr,
       ...ctx.commonAttrs,
     },
+  })
+  ctx.log("debug", "otel: tool.duration histogram recorded", {
+    sessionID: toolPart.sessionID,
+    tool_name: toolPart.tool,
+    duration_ms,
+    success,
   })
   return ctx.log(success ? "info" : "error", "otel: tool_result", {
     sessionID: toolPart.sessionID,

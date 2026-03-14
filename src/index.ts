@@ -6,6 +6,7 @@ import type {
   EventSessionCreated,
   EventSessionIdle,
   EventSessionError,
+  EventSessionStatus,
   EventMessageUpdated,
   EventMessagePartUpdated,
   EventPermissionUpdated,
@@ -17,7 +18,7 @@ import { LEVELS, type Level, type HandlerContext } from "./types.ts"
 import { loadConfig, resolveLogLevel } from "./config.ts"
 import { probeEndpoint } from "./probe.ts"
 import { setupOtel, createInstruments } from "./otel.ts"
-import { handleSessionCreated, handleSessionIdle, handleSessionError } from "./handlers/session.ts"
+import { handleSessionCreated, handleSessionIdle, handleSessionError, handleSessionStatus } from "./handlers/session.ts"
 import { handleMessageUpdated, handleMessagePartUpdated } from "./handlers/message.ts"
 import { handlePermissionUpdated, handlePermissionReplied } from "./handlers/permission.ts"
 import { handleSessionDiff, handleCommandExecuted } from "./handlers/activity.ts"
@@ -51,6 +52,11 @@ export const OtelPlugin: Plugin = async ({ project, client }) => {
     metricPrefix: config.metricPrefix,
   })
 
+  await log("debug", "config loaded", {
+    headersSet: !!config.otlpHeaders,
+    resourceAttributesSet: !!config.resourceAttributes,
+  })
+
   const probe = await probeEndpoint(config.endpoint)
   if (probe.ok) {
     await log("info", "OTLP endpoint reachable", { endpoint: config.endpoint, ms: probe.ms })
@@ -73,6 +79,7 @@ export const OtelPlugin: Plugin = async ({ project, client }) => {
   const logger = logs.getLogger("com.opencode")
   const pendingToolSpans = new Map()
   const pendingPermissions = new Map()
+  const sessionTotals = new Map()
   const commonAttrs = { "project.id": project.id } as const
 
   const ctx: HandlerContext = {
@@ -82,6 +89,7 @@ export const OtelPlugin: Plugin = async ({ project, client }) => {
     commonAttrs,
     pendingToolSpans,
     pendingPermissions,
+    sessionTotals,
   }
 
   async function shutdown() {
@@ -113,7 +121,7 @@ export const OtelPlugin: Plugin = async ({ project, client }) => {
         const next = resolveLogLevel(cfg.logLevel, minLevel)
         if (next !== minLevel) {
           minLevel = next
-          await log("debug", `log level set to "${minLevel}"`)
+          await log("info", `log level set to "${minLevel}"`)
         } else if (cfg.logLevel.toLowerCase() !== minLevel) {
           await log("warn", `unknown log level "${cfg.logLevel}", keeping "${minLevel}"`)
         }
@@ -154,6 +162,9 @@ export const OtelPlugin: Plugin = async ({ project, client }) => {
           break
         case "session.error":
           handleSessionError(event as EventSessionError, ctx)
+          break
+        case "session.status":
+          handleSessionStatus(event as EventSessionStatus, ctx)
           break
         case "session.diff":
           handleSessionDiff(event as EventSessionDiff, ctx)

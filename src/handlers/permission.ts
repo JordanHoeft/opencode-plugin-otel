@@ -11,6 +11,7 @@ export function handlePermissionUpdated(e: EventPermissionUpdated, ctx: HandlerC
     title: perm.title,
     sessionID: perm.sessionID,
   })
+  ctx.log("debug", "otel: permission stored", { permissionID: perm.id, sessionID: perm.sessionID, type: perm.type, title: perm.title })
 }
 
 /** Emits a `tool_decision` log event recording whether the permission was accepted or rejected. */
@@ -19,6 +20,7 @@ export function handlePermissionReplied(e: EventPermissionReplied, ctx: HandlerC
   const pending = ctx.pendingPermissions.get(permissionID)
   ctx.pendingPermissions.delete(permissionID)
   const decision = response === "allow" || response === "allowAlways" ? "accept" : "reject"
+  ctx.log("debug", "otel: tool_decision emitted", { permissionID, sessionID, decision, source: response, tool_name: pending?.title ?? "unknown" })
   ctx.logger.emit({
     severityNumber: SeverityNumber.INFO,
     severityText: "INFO",

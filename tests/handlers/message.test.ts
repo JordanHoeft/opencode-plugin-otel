@@ -128,6 +128,66 @@ describe("handleMessageUpdated", () => {
     expect(counters.cost.calls.at(0)!.value).toBe(0.05)
   })
 
+  test("increments cache counter once per message with cache activity", async () => {
+    const { ctx, counters } = makeCtx()
+    await handleMessageUpdated(
+      makeAssistantMessageUpdated({ tokens: { input: 100, output: 50, reasoning: 0, cache: { read: 200, write: 50 } } }),
+      ctx,
+    )
+    const types = counters.cache.calls.map(c => c.attrs["type"])
+    expect(types).toContain("cacheRead")
+    expect(types).toContain("cacheCreation")
+    expect(counters.cache.calls.find(c => c.attrs["type"] === "cacheRead")!.value).toBe(1)
+    expect(counters.cache.calls.find(c => c.attrs["type"] === "cacheCreation")!.value).toBe(1)
+  })
+
+  test("does not increment cache counter when cache tokens are zero", async () => {
+    const { ctx, counters } = makeCtx()
+    await handleMessageUpdated(
+      makeAssistantMessageUpdated({ tokens: { input: 100, output: 50, reasoning: 0, cache: { read: 0, write: 0 } } }),
+      ctx,
+    )
+    expect(counters.cache.calls).toHaveLength(0)
+  })
+
+  test("increments message counter", async () => {
+    const { ctx, counters } = makeCtx()
+    await handleMessageUpdated(makeAssistantMessageUpdated({ sessionID: "ses_1", modelID: "claude-3-5-sonnet" }), ctx)
+    expect(counters.message.calls).toHaveLength(1)
+    expect(counters.message.calls.at(0)!.value).toBe(1)
+    expect(counters.message.calls.at(0)!.attrs["session.id"]).toBe("ses_1")
+  })
+
+  test("increments model usage counter with session.id, model and provider", async () => {
+    const { ctx, counters } = makeCtx()
+    await handleMessageUpdated(
+      makeAssistantMessageUpdated({ sessionID: "ses_1", modelID: "claude-3-5-sonnet", providerID: "anthropic" }),
+      ctx,
+    )
+    expect(counters.modelUsage.calls).toHaveLength(1)
+    const call = counters.modelUsage.calls.at(0)!
+    expect(call.attrs["session.id"]).toBe("ses_1")
+    expect(call.attrs["model"]).toBe("claude-3-5-sonnet")
+    expect(call.attrs["provider"]).toBe("anthropic")
+  })
+
+  test("accumulates session totals including cache tokens", async () => {
+    const { ctx } = makeCtx()
+    ctx.sessionTotals.set("ses_1", { startMs: 0, tokens: 0, cost: 0, messages: 0 })
+    await handleMessageUpdated(
+      makeAssistantMessageUpdated({
+        sessionID: "ses_1",
+        cost: 0.02,
+        tokens: { input: 100, output: 50, reasoning: 10, cache: { read: 20, write: 5 } },
+      }),
+      ctx,
+    )
+    const totals = ctx.sessionTotals.get("ses_1")!
+    expect(totals.tokens).toBe(185)
+    expect(totals.cost).toBe(0.02)
+    expect(totals.messages).toBe(1)
+  })
+
   test("emits api_request log record on success", async () => {
     const { ctx, logger } = makeCtx()
     await handleMessageUpdated(makeAssistantMessageUpdated({}), ctx)
@@ -143,7 +203,7 @@ describe("handleMessageUpdated", () => {
     )
     expect(logger.records.at(0)!.body).toBe("api_error")
     expect(logger.records.at(0)!.attributes?.["error"]).toBe("APIError")
-    expect(pluginLog.calls.at(0)!.level).toBe("error")
+    expect(pluginLog.calls.find(c => c.level === "error")?.level).toBe("error")
   })
 
   test("uses assistant.time.created as log timestamp", async () => {
@@ -158,13 +218,13 @@ describe("handleMessageUpdated", () => {
 
 describe("handleMessagePartUpdated", () => {
   test("ignores non-tool parts", async () => {
-    const { ctx, histogram } = makeCtx()
+    const { ctx, histograms } = makeCtx()
     const e = {
       type: "message.part.updated",
       properties: { part: { type: "text", text: "hello", sessionID: "ses_1" } },
     } as unknown as EventMessagePartUpdated
     await handleMessagePartUpdated(e, ctx)
-    expect(histogram.calls).toHaveLength(0)
+    expect(histograms.tool.calls).toHaveLength(0)
   })
 
   test("stores running tool in pendingToolSpans", async () => {
@@ -175,20 +235,20 @@ describe("handleMessagePartUpdated", () => {
   })
 
   test("records histogram on tool completion", async () => {
-    const { ctx, histogram } = makeCtx()
+    const { ctx, histograms } = makeCtx()
     await handleMessagePartUpdated(makeToolPartUpdated("running", { startMs: 1000 }), ctx)
     await handleMessagePartUpdated(makeToolPartUpdated("completed", { startMs: 1000, endMs: 1500 }), ctx)
-    expect(histogram.calls).toHaveLength(1)
-    expect(histogram.calls.at(0)!.value).toBe(500)
-    expect(histogram.calls.at(0)!.attrs["tool_name"]).toBe("bash")
-    expect(histogram.calls.at(0)!.attrs["success"]).toBe(true)
+    expect(histograms.tool.calls).toHaveLength(1)
+    expect(histograms.tool.calls.at(0)!.value).toBe(500)
+    expect(histograms.tool.calls.at(0)!.attrs["tool_name"]).toBe("bash")
+    expect(histograms.tool.calls.at(0)!.attrs["success"]).toBe(true)
   })
 
   test("uses stored startMs from running span for duration", async () => {
-    const { ctx, histogram } = makeCtx()
+    const { ctx, histograms } = makeCtx()
     await handleMessagePartUpdated(makeToolPartUpdated("running", { startMs: 900 }), ctx)
     await handleMessagePartUpdated(makeToolPartUpdated("completed", { startMs: 1000, endMs: 1900 }), ctx)
-    expect(histogram.calls.at(0)!.value).toBe(1000)
+    expect(histograms.tool.calls.at(0)!.value).toBe(1000)
   })
 
   test("emits tool_result log on success", async () => {
@@ -209,7 +269,7 @@ describe("handleMessagePartUpdated", () => {
     expect(record.body).toBe("tool_result")
     expect(record.attributes?.["success"]).toBe(false)
     expect(record.attributes?.["error"]).toBe("tool failed")
-    expect(pluginLog.calls.at(0)!.level).toBe("error")
+    expect(pluginLog.calls.find(c => c.level === "error")?.level).toBe("error")
   })
 
   test("removes entry from pendingToolSpans after completion", async () => {
@@ -221,7 +281,7 @@ describe("handleMessagePartUpdated", () => {
   })
 
   test("skips recording when time.end is undefined", async () => {
-    const { ctx, histogram } = makeCtx()
+    const { ctx, histograms } = makeCtx()
     const e = {
       type: "message.part.updated",
       properties: {
@@ -235,6 +295,6 @@ describe("handleMessagePartUpdated", () => {
       },
     } as unknown as EventMessagePartUpdated
     await handleMessagePartUpdated(e, ctx)
-    expect(histogram.calls).toHaveLength(0)
+    expect(histograms.tool.calls).toHaveLength(0)
   })
 })
