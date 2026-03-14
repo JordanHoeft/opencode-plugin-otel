@@ -82,23 +82,23 @@ export function createInstruments(prefix: string): Instruments {
   const meter = metrics.getMeter("com.opencode")
   return {
     sessionCounter: meter.createCounter(`${prefix}session.count`, {
-      unit: "count",
+      unit: "{session}",
       description: "Count of opencode sessions started",
     }),
     tokenCounter: meter.createCounter(`${prefix}token.usage`, {
-      unit: "tokens",
+      unit: "{token}",
       description: "Number of tokens used",
     }),
     costCounter: meter.createCounter(`${prefix}cost.usage`, {
-      unit: "USD",
+      unit: "[USD]",
       description: "Cost of the opencode session in USD",
     }),
     linesCounter: meter.createCounter(`${prefix}lines_of_code.count`, {
-      unit: "count",
+      unit: "{line}",
       description: "Count of lines of code added or removed",
     }),
     commitCounter: meter.createCounter(`${prefix}commit.count`, {
-      unit: "count",
+      unit: "{commit}",
       description: "Number of git commits created",
     }),
     toolDurationHistogram: meter.createHistogram(`${prefix}tool.duration`, {
@@ -106,31 +106,31 @@ export function createInstruments(prefix: string): Instruments {
       description: "Duration of tool executions in milliseconds",
     }),
     cacheCounter: meter.createCounter(`${prefix}cache.count`, {
-      unit: "count",
-      description: "Token cache hits (read) and misses (write) per completed assistant message",
+      unit: "{request}",
+      description: "Token cache activity (cacheRead/cacheCreation) per completed assistant message",
     }),
     sessionDurationHistogram: meter.createHistogram(`${prefix}session.duration`, {
       unit: "ms",
       description: "Duration of a session from created to idle in milliseconds",
     }),
     messageCounter: meter.createCounter(`${prefix}message.count`, {
-      unit: "count",
+      unit: "{message}",
       description: "Number of completed assistant messages per session",
     }),
     sessionTokenGauge: meter.createHistogram(`${prefix}session.token.total`, {
-      unit: "tokens",
+      unit: "{token}",
       description: "Total tokens consumed per session, recorded as a histogram on session idle",
     }),
     sessionCostGauge: meter.createHistogram(`${prefix}session.cost.total`, {
-      unit: "USD",
+      unit: "[USD]",
       description: "Total cost per session in USD, recorded as a histogram on session idle",
     }),
     modelUsageCounter: meter.createCounter(`${prefix}model.usage`, {
-      unit: "count",
+      unit: "{request}",
       description: "Number of completed assistant messages per model and provider",
     }),
     retryCounter: meter.createCounter(`${prefix}retry.count`, {
-      unit: "count",
+      unit: "{retry}",
       description: "Number of API retries observed via session.status events",
     }),
   }
