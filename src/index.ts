@@ -84,7 +84,7 @@ export const OtelPlugin: Plugin = async ({ project, client }) => {
   const commonAttrs = { "project.id": project.id } as const
 
   if (disabledMetrics.size > 0) {
-    await log("info", "metrics disabled", { disabled: [...disabledMetrics].join(",") })
+    await log("info", "metrics disabled", { disabled: [...disabledMetrics] })
   }
 
   const ctx: HandlerContext = {

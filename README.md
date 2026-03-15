@@ -42,6 +42,7 @@ An [opencode](https://opencode.ai) plugin that exports telemetry via OpenTelemet
 | `session.created` | Session started |
 | `session.idle` | Session went idle (includes total tokens, cost, messages) |
 | `session.error` | Session error |
+| `user_prompt` | User sent a message (includes `prompt_length`, `model`, `agent`) |
 | `api_request` | Completed assistant message (tokens, cost, duration) |
 | `api_error` | Failed assistant message (error summary, duration) |
 | `tool_result` | Tool completed or errored (duration, success, output size) |

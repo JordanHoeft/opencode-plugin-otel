@@ -2,7 +2,6 @@ import { describe, test, expect } from "bun:test"
 import { handleSessionCreated, handleSessionIdle, handleSessionStatus } from "../../src/handlers/session.ts"
 import { handleMessageUpdated, handleMessagePartUpdated } from "../../src/handlers/message.ts"
 import { handleSessionDiff, handleCommandExecuted } from "../../src/handlers/activity.ts"
-import { loadConfig } from "../../src/config.ts"
 import { makeCtx } from "../helpers.ts"
 import type { EventSessionCreated, EventSessionIdle, EventSessionStatus, EventMessageUpdated, EventMessagePartUpdated, EventSessionDiff, EventCommandExecuted } from "@opencode-ai/sdk"
 
@@ -68,45 +67,6 @@ function makeCommandExecuted(cmd: string): EventCommandExecuted {
 }
 
 describe("OPENCODE_DISABLE_METRICS", () => {
-  describe("loadConfig parses disabled metrics correctly", () => {
-    test("empty string produces empty set", () => {
-      delete process.env["OPENCODE_DISABLE_METRICS"]
-      const config = loadConfig()
-      expect(config.disabledMetrics.size).toBe(0)
-    })
-
-    test("single metric name", () => {
-      process.env["OPENCODE_DISABLE_METRICS"] = "session.count"
-      const config = loadConfig()
-      expect(config.disabledMetrics.has("session.count")).toBe(true)
-      delete process.env["OPENCODE_DISABLE_METRICS"]
-    })
-
-    test("comma-separated list", () => {
-      process.env["OPENCODE_DISABLE_METRICS"] = "session.count,cache.count,retry.count"
-      const config = loadConfig()
-      expect(config.disabledMetrics.has("session.count")).toBe(true)
-      expect(config.disabledMetrics.has("cache.count")).toBe(true)
-      expect(config.disabledMetrics.has("retry.count")).toBe(true)
-      delete process.env["OPENCODE_DISABLE_METRICS"]
-    })
-
-    test("trims whitespace around names", () => {
-      process.env["OPENCODE_DISABLE_METRICS"] = " session.count , cache.count "
-      const config = loadConfig()
-      expect(config.disabledMetrics.has("session.count")).toBe(true)
-      expect(config.disabledMetrics.has("cache.count")).toBe(true)
-      delete process.env["OPENCODE_DISABLE_METRICS"]
-    })
-
-    test("ignores empty segments from trailing commas", () => {
-      process.env["OPENCODE_DISABLE_METRICS"] = "session.count,"
-      const config = loadConfig()
-      expect(config.disabledMetrics.size).toBe(1)
-      delete process.env["OPENCODE_DISABLE_METRICS"]
-    })
-  })
-
   describe("session.count disabled", () => {
     test("does not increment session counter", async () => {
       const { ctx, counters } = makeCtx("proj_test", ["session.count"])

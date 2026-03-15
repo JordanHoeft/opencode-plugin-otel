@@ -6,11 +6,12 @@ import type { HandlerContext } from "../types.ts"
 /** Records lines-added and lines-removed metrics for each file in the diff. */
 export function handleSessionDiff(e: EventSessionDiff, ctx: HandlerContext) {
   const sessionID = e.properties.sessionID
+  const linesEnabled = isMetricEnabled("lines_of_code.count", ctx)
   let totalAdded = 0
   let totalRemoved = 0
   for (const fileDiff of e.properties.diff) {
     if (fileDiff.additions > 0) {
-      if (isMetricEnabled("lines_of_code.count", ctx)) {
+      if (linesEnabled) {
         ctx.instruments.linesCounter.add(fileDiff.additions, {
           ...ctx.commonAttrs,
           "session.id": sessionID,
@@ -20,7 +21,7 @@ export function handleSessionDiff(e: EventSessionDiff, ctx: HandlerContext) {
       totalAdded += fileDiff.additions
     }
     if (fileDiff.deletions > 0) {
-      if (isMetricEnabled("lines_of_code.count", ctx)) {
+      if (linesEnabled) {
         ctx.instruments.linesCounter.add(fileDiff.deletions, {
           ...ctx.commonAttrs,
           "session.id": sessionID,

@@ -105,6 +105,6 @@ export function handleSessionStatus(e: EventSessionStatus, ctx: HandlerContext) 
   const { attempt, message: retryMessage } = status
   if (isMetricEnabled("retry.count", ctx)) {
     ctx.instruments.retryCounter.add(1, { ...ctx.commonAttrs, "session.id": sessionID })
+    ctx.log("debug", "otel: retry counter incremented", { sessionID, attempt, retryMessage })
   }
-  ctx.log("debug", "otel: retry counter incremented", { sessionID, attempt, retryMessage })
 }
