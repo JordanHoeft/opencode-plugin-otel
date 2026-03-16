@@ -118,11 +118,11 @@ export function createInstruments(prefix: string): Instruments {
       description: "Number of completed assistant messages per session",
     }),
     sessionTokenGauge: meter.createHistogram(`${prefix}session.token.total`, {
-      unit: "{token}",
+      unit: "tokens",
       description: "Total tokens consumed per session, recorded as a histogram on session idle",
     }),
     sessionCostGauge: meter.createHistogram(`${prefix}session.cost.total`, {
-      unit: "[USD]",
+      unit: "USD",
       description: "Total cost per session in USD, recorded as a histogram on session idle",
     }),
     modelUsageCounter: meter.createCounter(`${prefix}model.usage`, {
