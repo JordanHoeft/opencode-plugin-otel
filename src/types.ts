@@ -25,7 +25,7 @@ export type PendingToolSpan = {
   tool: string
   sessionID: string
   startMs: number
-  span: Span
+  span?: Span
 }
 
 /** Permission prompt tracked between `permission.updated` and `permission.replied`. */
@@ -72,6 +72,7 @@ export type HandlerContext = {
   pendingPermissions: Map<string, PendingPermission>
   sessionTotals: Map<string, SessionTotals>
   disabledMetrics: Set<string>
+  disabledTraces: Set<string>
   tracer: Tracer
   sessionSpans: Map<string, Span>
   messageSpans: Map<string, Span>

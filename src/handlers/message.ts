@@ -1,7 +1,7 @@
 import { SeverityNumber } from "@opentelemetry/api-logs"
 import { SpanStatusCode, SpanKind, context, trace } from "@opentelemetry/api"
 import type { AssistantMessage, EventMessageUpdated, EventMessagePartUpdated, ToolPart } from "@opencode-ai/sdk"
-import { errorSummary, setBoundedMap, accumulateSessionTotals, isMetricEnabled } from "../util.ts"
+import { errorSummary, setBoundedMap, accumulateSessionTotals, isMetricEnabled, isTraceEnabled } from "../util.ts"
 import type { HandlerContext } from "../types.ts"
 
 type SubtaskPart = {
@@ -206,24 +206,27 @@ export function handleMessagePartUpdated(e: EventMessagePartUpdated, ctx: Handle
     const key = `${toolPart.sessionID}:${toolPart.callID}`
 
     if (toolPart.state.status === "running") {
-      const sessionSpan = ctx.sessionSpans.get(toolPart.sessionID)
-      const parentCtx = sessionSpan
-        ? trace.setSpan(context.active(), sessionSpan)
-        : context.active()
-
-      const toolSpan = ctx.tracer.startSpan(
-        `opencode.tool ${toolPart.tool}`,
-        {
-          startTime: toolPart.state.time.start,
-          kind: SpanKind.INTERNAL,
-          attributes: {
-            "session.id": toolPart.sessionID,
-            "tool.name": toolPart.tool,
-            ...ctx.commonAttrs,
-          },
-        },
-        parentCtx,
-      )
+      const toolSpan = isTraceEnabled("tool", ctx)
+        ? (() => {
+            const sessionSpan = ctx.sessionSpans.get(toolPart.sessionID)
+            const parentCtx = sessionSpan
+              ? trace.setSpan(context.active(), sessionSpan)
+              : context.active()
+            return ctx.tracer.startSpan(
+              `opencode.tool ${toolPart.tool}`,
+              {
+                startTime: toolPart.state.time.start,
+                kind: SpanKind.INTERNAL,
+                attributes: {
+                  "session.id": toolPart.sessionID,
+                  "tool.name": toolPart.tool,
+                  ...ctx.commonAttrs,
+                },
+              },
+              parentCtx,
+            )
+          })()
+        : undefined
       setBoundedMap(ctx.pendingToolSpans, key, {
         tool: toolPart.tool,
         sessionID: toolPart.sessionID,
@@ -253,29 +256,31 @@ export function handleMessagePartUpdated(e: EventMessagePartUpdated, ctx: Handle
       })
     }
 
-    const toolSpan = pending?.span ?? ctx.tracer.startSpan(
-      `opencode.tool ${toolPart.tool}`,
-      {
-        startTime: start,
-        kind: SpanKind.INTERNAL,
-        attributes: {
-          "session.id": toolPart.sessionID,
-          "tool.name": toolPart.tool,
-          ...ctx.commonAttrs,
+    if (isTraceEnabled("tool", ctx)) {
+      const toolSpan = pending?.span ?? ctx.tracer.startSpan(
+        `opencode.tool ${toolPart.tool}`,
+        {
+          startTime: start,
+          kind: SpanKind.INTERNAL,
+          attributes: {
+            "session.id": toolPart.sessionID,
+            "tool.name": toolPart.tool,
+            ...ctx.commonAttrs,
+          },
         },
-      },
-    )
-    toolSpan.setAttribute("tool.success", success)
-    if (success) {
-      const output = (toolPart.state as { output: string }).output
-      toolSpan.setAttribute("tool.result_size_bytes", Buffer.byteLength(output, "utf8"))
-      toolSpan.setStatus({ code: SpanStatusCode.OK })
-    } else {
-      const err = (toolPart.state as { error: string }).error
-      toolSpan.setAttribute("tool.error", err)
-      toolSpan.setStatus({ code: SpanStatusCode.ERROR, message: err })
+      )
+      toolSpan.setAttribute("tool.success", success)
+      if (success) {
+        const output = (toolPart.state as { output: string }).output
+        toolSpan.setAttribute("tool.result_size_bytes", Buffer.byteLength(output, "utf8"))
+        toolSpan.setStatus({ code: SpanStatusCode.OK })
+      } else {
+        const err = (toolPart.state as { error: string }).error
+        toolSpan.setAttribute("tool.error", err)
+        toolSpan.setStatus({ code: SpanStatusCode.ERROR, message: err })
+      }
+      toolSpan.end(end)
     }
-    toolSpan.end(end)
 
     const sizeAttr = success
       ? { tool_result_size_bytes: Buffer.byteLength((toolPart.state as { output: string }).output, "utf8") }
@@ -327,6 +332,7 @@ export function startMessageSpan(
   startTime: number,
   ctx: HandlerContext,
 ) {
+  if (!isTraceEnabled("llm", ctx)) return
   if (ctx.messageSpans.has(messageID)) return
   const sessionSpan = ctx.sessionSpans.get(sessionID)
   const parentCtx = sessionSpan

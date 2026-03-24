@@ -373,3 +373,127 @@ describe("orphaned span cleanup", () => {
     expect(msgSpan.status.code).toBe(SpanStatusCode.ERROR)
   })
 })
+
+describe("OPENCODE_DISABLE_TRACES=session", () => {
+  test("no session span is started", () => {
+    const { ctx, tracer } = makeCtx("proj_test", [], ["session"])
+    handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    expect(tracer.spans).toHaveLength(0)
+    expect(ctx.sessionSpans.has("ses_1")).toBe(false)
+  })
+
+  test("session counter metric still fires", () => {
+    const { ctx, counters } = makeCtx("proj_test", [], ["session"])
+    handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    expect(counters.session.calls).toHaveLength(1)
+  })
+
+  test("session.created log record still emitted", () => {
+    const { ctx, logger } = makeCtx("proj_test", [], ["session"])
+    handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    expect(logger.records.find(r => r.body === "session.created")).toBeDefined()
+  })
+
+  test("session.idle does not throw when no session span exists", () => {
+    const { ctx } = makeCtx("proj_test", [], ["session"])
+    handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    expect(() => handleSessionIdle(makeSessionIdle("ses_1"), ctx)).not.toThrow()
+  })
+
+  test("session.error does not throw when no session span exists", () => {
+    const { ctx } = makeCtx("proj_test", [], ["session"])
+    handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    expect(() => handleSessionError(makeSessionError("ses_1"), ctx)).not.toThrow()
+  })
+
+  test("llm spans become root spans (no parent) when session traces disabled but llm enabled", () => {
+    const { ctx, tracer } = makeCtx("proj_test", [], ["session"])
+    handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    startMessageSpan("ses_1", "msg_1", "claude", "anthropic", 1000, ctx)
+    expect(tracer.spans).toHaveLength(1)
+    expect(tracer.spans[0]!.name).toBe("gen_ai.chat")
+  })
+})
+
+describe("OPENCODE_DISABLE_TRACES=llm", () => {
+  test("startMessageSpan is a no-op", () => {
+    const { ctx, tracer } = makeCtx("proj_test", [], ["llm"])
+    startMessageSpan("ses_1", "msg_1", "claude", "anthropic", 1000, ctx)
+    expect(tracer.spans).toHaveLength(0)
+    expect(ctx.messageSpans.has("msg_1")).toBe(false)
+  })
+
+  test("token counter metrics still fire", () => {
+    const { ctx, counters } = makeCtx("proj_test", [], ["llm"])
+    handleMessageUpdated(makeAssistantMessageUpdated({ id: "msg_1" }), ctx)
+    expect(counters.token.calls.length).toBeGreaterThan(0)
+  })
+
+  test("cost counter metric still fires", () => {
+    const { ctx, counters } = makeCtx("proj_test", [], ["llm"])
+    handleMessageUpdated(makeAssistantMessageUpdated({ id: "msg_1", cost: 0.05 }), ctx)
+    expect(counters.cost.calls).toHaveLength(1)
+  })
+
+  test("api_request log record still emitted", () => {
+    const { ctx, logger } = makeCtx("proj_test", [], ["llm"])
+    handleMessageUpdated(makeAssistantMessageUpdated({ id: "msg_1" }), ctx)
+    expect(logger.records.find(r => r.body === "api_request")).toBeDefined()
+  })
+
+  test("handleMessageUpdated does not throw when no message span exists", () => {
+    const { ctx } = makeCtx("proj_test", [], ["llm"])
+    expect(() => handleMessageUpdated(makeAssistantMessageUpdated({ id: "msg_1" }), ctx)).not.toThrow()
+  })
+
+  test("session spans still created when only llm disabled", () => {
+    const { ctx, tracer } = makeCtx("proj_test", [], ["llm"])
+    handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    expect(tracer.spans).toHaveLength(1)
+    expect(tracer.spans[0]!.name).toBe("opencode.session")
+  })
+})
+
+describe("OPENCODE_DISABLE_TRACES=tool", () => {
+  test("no tool span started on running status", () => {
+    const { ctx, tracer } = makeCtx("proj_test", [], ["tool"])
+    handleMessagePartUpdated(makeToolPartUpdated("running"), ctx)
+    expect(tracer.spans).toHaveLength(0)
+  })
+
+  test("pendingToolSpans entry still stored for histogram timing", () => {
+    const { ctx } = makeCtx("proj_test", [], ["tool"])
+    handleMessagePartUpdated(makeToolPartUpdated("running", { startMs: 1000 }), ctx)
+    expect(ctx.pendingToolSpans.has("ses_1:call_1")).toBe(true)
+    expect(ctx.pendingToolSpans.get("ses_1:call_1")!.startMs).toBe(1000)
+    expect(ctx.pendingToolSpans.get("ses_1:call_1")!.span).toBeUndefined()
+  })
+
+  test("tool.duration histogram still records on completion", () => {
+    const { ctx, histograms } = makeCtx("proj_test", [], ["tool"])
+    handleMessagePartUpdated(makeToolPartUpdated("running", { startMs: 1000 }), ctx)
+    handleMessagePartUpdated(makeToolPartUpdated("completed", { startMs: 1000, endMs: 1500 }), ctx)
+    expect(histograms.tool.calls).toHaveLength(1)
+    expect(histograms.tool.calls[0]!.value).toBe(500)
+  })
+
+  test("tool_result log record still emitted on completion", () => {
+    const { ctx, logger } = makeCtx("proj_test", [], ["tool"])
+    handleMessagePartUpdated(makeToolPartUpdated("running"), ctx)
+    handleMessagePartUpdated(makeToolPartUpdated("completed"), ctx)
+    expect(logger.records.find(r => r.body === "tool_result")).toBeDefined()
+  })
+
+  test("no tool span created for out-of-order completed event", () => {
+    const { ctx, tracer } = makeCtx("proj_test", [], ["tool"])
+    handleMessagePartUpdated(makeToolPartUpdated("completed", { startMs: 500, endMs: 1500 }), ctx)
+    expect(tracer.spans).toHaveLength(0)
+  })
+
+  test("session spans still created when only tool disabled", () => {
+    const { ctx, tracer } = makeCtx("proj_test", [], ["tool"])
+    handleSessionCreated(makeSessionCreated("ses_1"), ctx)
+    expect(tracer.spans).toHaveLength(1)
+    expect(tracer.spans[0]!.name).toBe("opencode.session")
+  })
+})

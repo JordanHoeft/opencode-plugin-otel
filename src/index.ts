@@ -84,11 +84,15 @@ export const OtelPlugin: Plugin = async ({ project, client }) => {
   const sessionTotals = new Map()
   const sessionSpans = new Map()
   const messageSpans = new Map()
-  const { disabledMetrics } = config
+  const { disabledMetrics, disabledTraces } = config
   const commonAttrs = { "project.id": project.id } as const
 
   if (disabledMetrics.size > 0) {
     await log("info", "metrics disabled", { disabled: [...disabledMetrics] })
+  }
+
+  if (disabledTraces.size > 0) {
+    await log("info", "traces disabled", { disabled: [...disabledTraces] })
   }
 
   const ctx: HandlerContext = {
@@ -100,6 +104,7 @@ export const OtelPlugin: Plugin = async ({ project, client }) => {
     pendingPermissions,
     sessionTotals,
     disabledMetrics,
+    disabledTraces,
     tracer,
     sessionSpans,
     messageSpans,

@@ -1,7 +1,7 @@
 import { SeverityNumber } from "@opentelemetry/api-logs"
 import { SpanStatusCode, context, trace } from "@opentelemetry/api"
 import type { EventSessionCreated, EventSessionIdle, EventSessionError, EventSessionStatus } from "@opencode-ai/sdk"
-import { errorSummary, setBoundedMap, isMetricEnabled } from "../util.ts"
+import { errorSummary, setBoundedMap, isMetricEnabled, isTraceEnabled } from "../util.ts"
 import type { HandlerContext } from "../types.ts"
 
 /** Increments the session counter, records start time, starts the root session span, and emits a `session.created` log event. */
@@ -14,24 +14,30 @@ export function handleSessionCreated(e: EventSessionCreated, ctx: HandlerContext
   }
   setBoundedMap(ctx.sessionTotals, sessionID, { startMs: createdAt, tokens: 0, cost: 0, messages: 0, agent: "unknown" })
 
-  const parentSpan = parentID ? ctx.sessionSpans.get(parentID) : undefined
-  const spanCtx = parentSpan
-    ? trace.setSpan(context.active(), parentSpan)
-    : context.active()
+  // WARNING: disabling "session" traces while "llm" or "tool" traces remain enabled
+  // will cause those child spans to be emitted as unlinked root spans with no parent.
+  // There is no session span to parent them to. If you need a connected trace hierarchy,
+  // either enable all three trace types or disable all of them together.
+  if (isTraceEnabled("session", ctx)) {
+    const parentSpan = parentID ? ctx.sessionSpans.get(parentID) : undefined
+    const spanCtx = parentSpan
+      ? trace.setSpan(context.active(), parentSpan)
+      : context.active()
 
-  const sessionSpan = ctx.tracer.startSpan(
-    "opencode.session",
-    {
-      startTime: createdAt,
-      attributes: {
-        "session.id": sessionID,
-        "session.is_subagent": isSubagent,
-        ...ctx.commonAttrs,
+    const sessionSpan = ctx.tracer.startSpan(
+      "opencode.session",
+      {
+        startTime: createdAt,
+        attributes: {
+          "session.id": sessionID,
+          "session.is_subagent": isSubagent,
+          ...ctx.commonAttrs,
+        },
       },
-    },
-    spanCtx,
-  )
-  setBoundedMap(ctx.sessionSpans, sessionID, sessionSpan)
+      spanCtx,
+    )
+    setBoundedMap(ctx.sessionSpans, sessionID, sessionSpan)
+  }
 
   ctx.logger.emit({
     severityNumber: SeverityNumber.INFO,
@@ -50,8 +56,8 @@ function sweepSession(sessionID: string, ctx: HandlerContext) {
   }
   for (const [key, span] of ctx.pendingToolSpans) {
     if (span.sessionID === sessionID) {
-      span.span.setStatus({ code: SpanStatusCode.ERROR, message: "session ended before tool completed" })
-      span.span.end()
+      span.span?.setStatus({ code: SpanStatusCode.ERROR, message: "session ended before tool completed" })
+      span.span?.end()
       ctx.pendingToolSpans.delete(key)
     }
   }
