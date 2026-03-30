@@ -33,7 +33,9 @@
     "access": "public"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "bun --bun eslint .",
+    "check:jsdoc-coverage": "bun scripts/check-jsdoc-coverage.mjs"
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.2.23",
@@ -53,6 +55,9 @@
     "typescript": "^5.9.3"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@typescript-eslint/parser": "^8.30.1",
+    "eslint": "^9.24.0",
+    "eslint-plugin-jsdoc": "^50.6.11"
   }
 }
