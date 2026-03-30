@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [Unreleased]
+
+### Features
+
+* **otel:** add OTLP HTTP/protobuf exporter support via `OPENCODE_OTLP_PROTOCOL`
+
 ## [0.6.0](https://github.com/DEVtheOPS/opencode-plugin-otel/compare/v0.5.0...v0.6.0) (2026-03-26)
 
 
