@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [0.7.0](https://github.com/DEVtheOPS/opencode-plugin-otel/compare/v0.6.0...v0.7.0) (2026-04-13)
+
+
+### Features
+
+* **otel:** add OTLP HTTP exporter support ([d679862](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/d679862a88df831685e142fb0cb40db16225d5c8))
+
+
+### Bug Fixes
+
+* Add oc-plugin key to package.json ([9975938](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/997593887d055715a1429bd9b0d3d30c23516111))
+* Added oc-plugin key to package.json ([db66f87](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/db66f87d6a08fd0ee0b6d11e362ca6e4c60c3e5a))
+
 ## [Unreleased]
 
 ### Features
