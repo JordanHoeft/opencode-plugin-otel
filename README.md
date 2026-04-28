@@ -161,7 +161,7 @@ export OPENCODE_OTLP_METRICS_TEMPORALITY=delta
 
 > **Note:** The endpoint is `otlp.datadoghq.com` (not `api.datadoghq.com`).
 > Use `otlp.datadoghq.eu` for EU, `otlp.us3.datadoghq.com` for US3, etc.
-> See [Datadog OTLP docs](https://docs.datadoghq.com/opentelemetry/interoperability/otlp_ingest_in_the_agent/) for all regions.
+> See [Datadog OTLP docs](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest_in_the_agent/) for all regions.
 
 ### Honeycomb example
 
