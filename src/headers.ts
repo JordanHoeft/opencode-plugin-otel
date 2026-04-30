@@ -1,19 +1,21 @@
 import { createRequire } from "module"
 import { ExportResultCode, type ExportResult } from "@opentelemetry/core"
-import type { PushMetricExporter, ResourceMetrics, InstrumentType } from "@opentelemetry/sdk-metrics"
-import type { AggregationOption } from "@opentelemetry/sdk-metrics/build/src/view/AggregationOption"
-import type { AggregationTemporality } from "@opentelemetry/sdk-metrics/build/src/export/AggregationTemporality"
+import type { PushMetricExporter, ResourceMetrics } from "@opentelemetry/sdk-metrics"
 import type { SpanExporter, ReadableSpan } from "@opentelemetry/sdk-trace-base"
 import type { LogRecordExporter, ReadableLogRecord } from "@opentelemetry/sdk-logs"
 import type { Metadata } from "@grpc/grpc-js"
 
 const require = createRequire(import.meta.url)
+const DEFAULT_HELPER_TIMEOUT_MS = 5000
 
 type Exporter<T> = {
   export(items: T, resultCallback: (result: ExportResult) => void): void
   shutdown(): Promise<void>
   forceFlush?(): Promise<void>
 }
+
+type SelectAggregation = NonNullable<PushMetricExporter["selectAggregation"]>
+type SelectAggregationTemporality = NonNullable<PushMetricExporter["selectAggregationTemporality"]>
 
 export type HeadersMap = Record<string, string>
 
@@ -55,6 +57,7 @@ export class DynamicHeaders {
   constructor(
     private readonly staticHeaders: HeadersMap,
     private readonly helper: string | undefined,
+    private readonly helperTimeoutMs = DEFAULT_HELPER_TIMEOUT_MS,
   ) {
     this.headers = { ...staticHeaders }
   }
@@ -86,12 +89,20 @@ export class DynamicHeaders {
   }
 
   private async runHelper(): Promise<HeadersMap> {
-    const proc = Bun.spawn([this.helper!], { stdout: "pipe", stderr: "pipe" })
+    const proc = Bun.spawn([this.helper!], {
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: this.helperTimeoutMs,
+      killSignal: "SIGTERM",
+    })
     const [stdout, stderr, exitCode] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),
       proc.exited,
     ])
+    if (proc.signalCode) {
+      throw new Error(`OTLP headers helper was terminated by ${proc.signalCode}`)
+    }
     if (exitCode !== 0) {
       const detail = stderr.trim() || `exit code ${exitCode}`
       throw new Error(`OTLP headers helper failed: ${detail}`)
@@ -133,11 +144,13 @@ export class RefreshingMetricExporter implements PushMetricExporter {
     return this.exporter.shutdown()
   }
 
-  selectAggregationTemporality(instrumentType: InstrumentType): AggregationTemporality {
+  selectAggregationTemporality(
+    instrumentType: Parameters<SelectAggregationTemporality>[0],
+  ): ReturnType<SelectAggregationTemporality> {
     return this.exporter.selectAggregationTemporality!(instrumentType)
   }
 
-  selectAggregation(instrumentType: InstrumentType): AggregationOption {
+  selectAggregation(instrumentType: Parameters<SelectAggregation>[0]): ReturnType<SelectAggregation> {
     return this.exporter.selectAggregation!(instrumentType)
   }
 

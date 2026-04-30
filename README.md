@@ -129,8 +129,10 @@ The helper must be executable and print a JSON object to stdout:
 
 ```bash
 #!/bin/sh
-printf '{"Authorization":"Bearer %s"}' "$(gcloud auth print-access-token)"
+printf '{"Authorization":"Bearer %s"}' "$(get-token.sh)"
 ```
+
+For a Cloud Run collector using IAM authentication, `get-token.sh` might be `gcloud auth print-identity-token`.
 
 If `OPENCODE_OTLP_HEADERS` is also set, helper-provided headers override static headers with the same name. Header values are never logged.
 

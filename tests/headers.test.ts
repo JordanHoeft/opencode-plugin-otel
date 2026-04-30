@@ -92,6 +92,16 @@ describe("DynamicHeaders", () => {
     await Promise.all([headers.refresh(), headers.refresh(), headers.refresh()])
     expect(await Bun.file(countFile).text()).toBe("1")
   })
+
+  test("fails helper refresh when the helper times out", async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "otel-headers-"))
+    const helper = join(tempDir, "helper.sh")
+    await Bun.write(helper, "#!/bin/sh\nsleep 1\n")
+    await Bun.spawn(["chmod", "+x", helper]).exited
+
+    const headers = new DynamicHeaders({}, helper, 50)
+    await expect(headers.refresh()).rejects.toThrow("OTLP headers helper was terminated")
+  })
 })
 
 describe("RefreshingSpanExporter", () => {
