@@ -48,6 +48,7 @@ describe("loadConfig", () => {
     "OPENCODE_OTLP_METRICS_INTERVAL",
     "OPENCODE_OTLP_LOGS_INTERVAL",
     "OPENCODE_OTLP_HEADERS",
+    "OPENCODE_OTLP_HEADERS_HELPER",
     "OPENCODE_RESOURCE_ATTRIBUTES",
     "OPENCODE_OTLP_METRICS_TEMPORALITY",
     "OPENCODE_DISABLE_METRICS",
@@ -108,6 +109,11 @@ describe("loadConfig", () => {
     process.env["OPENCODE_OTLP_HEADERS"] = "api-key=abc123"
     loadConfig()
     expect(process.env["OTEL_EXPORTER_OTLP_HEADERS"]).toBe("api-key=abc123")
+  })
+
+  test("reads OPENCODE_OTLP_HEADERS_HELPER", () => {
+    process.env["OPENCODE_OTLP_HEADERS_HELPER"] = "/tmp/otel-headers"
+    expect(loadConfig().otlpHeadersHelper).toBe("/tmp/otel-headers")
   })
 
   test("copies OPENCODE_RESOURCE_ATTRIBUTES to OTEL_RESOURCE_ATTRIBUTES", () => {
