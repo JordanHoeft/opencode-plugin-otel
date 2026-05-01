@@ -15,6 +15,7 @@ An [opencode](https://opencode.ai) plugin that exports telemetry via OpenTelemet
 - [Configuration](#configuration)
   - [Quick start](#quick-start)
   - [Headers and resource attributes](#headers-and-resource-attributes)
+  - [Dynamic headers](#dynamic-headers)
   - [Disabling specific metrics](#disabling-specific-metrics)
   - [Datadog example](#datadog-example)
   - [Honeycomb example](#honeycomb-example)
@@ -89,6 +90,7 @@ All configuration is via environment variables. Set them in your shell profile (
 | `OPENCODE_METRIC_PREFIX` | `opencode.` | Prefix for all metric names (e.g. set to `claude_code.` for Claude Code dashboard compatibility) |
 | `OPENCODE_DISABLE_METRICS` | _(unset)_ | Comma-separated list of metric name suffixes to disable (e.g. `cache.count,session.duration`) |
 | `OPENCODE_OTLP_HEADERS` | _(unset)_ | Comma-separated `key=value` headers added to all OTLP exports. **Keep out of version control — may contain sensitive auth tokens.** |
+| `OPENCODE_OTLP_HEADERS_HELPER` | _(unset)_ | Executable script/binary that returns dynamic OTLP headers as JSON after an auth failure. Helper headers override `OPENCODE_OTLP_HEADERS`. |
 | `OPENCODE_RESOURCE_ATTRIBUTES` | _(unset)_ | Comma-separated `key=value` pairs merged into the OTel resource. Example: `service.version=1.2.3,deployment.environment=production` |
 | `OPENCODE_OTLP_METRICS_TEMPORALITY` | _(unset)_ | Metrics aggregation temporality: `delta`, `cumulative`, or `lowmemory`. Required for Datadog (`delta`). Copied to `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE`. |
 
@@ -114,6 +116,25 @@ export OPENCODE_RESOURCE_ATTRIBUTES="service.version=1.2.3,deployment.environmen
 ```
 
 > **Security note:** `OPENCODE_OTLP_HEADERS` typically contains auth tokens. Set it in your shell profile (`~/.zshrc`, `~/.bashrc`) or a secrets manager — never commit it to version control or print it in CI logs.
+
+### Dynamic headers
+
+Use `OPENCODE_OTLP_HEADERS_HELPER` when your collector requires short-lived authentication tokens. The helper is run only after an OTLP export fails with an authentication error (`401`/`403` for HTTP or `UNAUTHENTICATED`/`PERMISSION_DENIED` for gRPC). The plugin refreshes headers, rebuilds the exporter, and retries the failed export once.
+
+```bash
+export OPENCODE_OTLP_HEADERS_HELPER=/path/to/opencode-otel-headers.sh
+```
+
+The helper must be executable and print a JSON object to stdout:
+
+```bash
+#!/bin/sh
+printf '{"Authorization":"Bearer %s"}' "$(get-token.sh)"
+```
+
+For a Cloud Run collector using IAM authentication, `get-token.sh` might be `gcloud auth print-identity-token`.
+
+If `OPENCODE_OTLP_HEADERS` is also set, helper-provided headers override static headers with the same name. Header values are never logged.
 
 ### Disabling specific metrics
 

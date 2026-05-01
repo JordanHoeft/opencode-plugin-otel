@@ -53,10 +53,12 @@ export const OtelPlugin: Plugin = async ({ project, client }) => {
     metricsInterval: config.metricsInterval,
     logsInterval: config.logsInterval,
     metricPrefix: config.metricPrefix,
+    headersHelperSet: !!config.otlpHeadersHelper,
   })
 
   await log("debug", "config loaded", {
     headersSet: !!config.otlpHeaders,
+    headersHelperSet: !!config.otlpHeadersHelper,
     resourceAttributesSet: !!config.resourceAttributes,
   })
 
@@ -76,6 +78,8 @@ export const OtelPlugin: Plugin = async ({ project, client }) => {
     config.metricsInterval,
     config.logsInterval,
     PLUGIN_VERSION,
+    config.otlpHeaders,
+    config.otlpHeadersHelper,
   )
   await log("info", "OTel SDK initialized")
 

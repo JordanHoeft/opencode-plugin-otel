@@ -14,6 +14,7 @@ export type PluginConfig = {
   logsInterval: number
   metricPrefix: string
   otlpHeaders: string | undefined
+  otlpHeadersHelper: string | undefined
   resourceAttributes: string | undefined
   metricsTemporality: MetricsTemporality | undefined
   disabledMetrics: Set<string>
@@ -38,6 +39,7 @@ export function parseEnvInt(key: string, fallback: number): number {
  */
 export function loadConfig(): PluginConfig {
   const otlpHeaders = process.env["OPENCODE_OTLP_HEADERS"]
+  const otlpHeadersHelper = process.env["OPENCODE_OTLP_HEADERS_HELPER"]
   const resourceAttributes = process.env["OPENCODE_RESOURCE_ATTRIBUTES"]
   const rawTemporality = process.env["OPENCODE_OTLP_METRICS_TEMPORALITY"]
   const protocol = process.env["OPENCODE_OTLP_PROTOCOL"]
@@ -81,6 +83,7 @@ export function loadConfig(): PluginConfig {
     logsInterval: parseEnvInt("OPENCODE_OTLP_LOGS_INTERVAL", 5000),
     metricPrefix: process.env["OPENCODE_METRIC_PREFIX"] ?? "opencode.",
     otlpHeaders,
+    otlpHeadersHelper,
     resourceAttributes,
     metricsTemporality,
     disabledMetrics,
