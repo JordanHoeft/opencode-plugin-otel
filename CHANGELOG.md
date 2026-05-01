@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [0.9.0](https://github.com/DEVtheOPS/opencode-plugin-otel/compare/v0.8.0...v0.9.0) (2026-05-01)
+
+
+### Features
+
+* **otel:** refresh dynamic headers on auth failure ([b65dd2e](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/b65dd2e157a6e87b77f2641df63407256f300f82))
+
+
+### Bug Fixes
+
+* bundle plugin to JS for server mode compatibility ([37a86e8](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/37a86e8188c09162129bcc22e3a4254ab5aacb33)), closes [#35](https://github.com/DEVtheOPS/opencode-plugin-otel/issues/35)
+* emit TypeScript declarations alongside bundled JS ([ce22030](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/ce22030d975777d43a21d4e15de2c29091c15d7d))
+* **otel:** harden dynamic header helper ([2810d31](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/2810d31acf148735c1faef8130e571766ebeaab5))
+* use prepack instead of prepublishOnly ([bd7a4f9](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/bd7a4f9b57a6016113e14713e60c666f5bab95d3))
+
 ## [0.8.0](https://github.com/DEVtheOPS/opencode-plugin-otel/compare/v0.7.0...v0.8.0) (2026-04-21)
 
 
