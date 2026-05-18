@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.0.0](https://github.com/DEVtheOPS/opencode-plugin-otel/compare/v0.9.0...v1.0.0) (2026-05-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **handlers:** opencode.lines_of_code.count semantics have changed. Dashboards that sum() the counter previously saw inflated numbers; they will now see the correct net session totals. Existing queries do not need to change, but the numeric results will be smaller (and correct).
+
+### Features
+
+* **otel:** prewarm dynamic OTLP headers helper ([6f62b8b](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/6f62b8bc03382c2d451d0538d72dffb44757b16c))
+
+
+### Bug Fixes
+
+* **handlers:** address code-review feedback on lines_of_code semantics ([a25022c](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/a25022c17cb912dedfe0dcd3b092db7bbee97e85))
+* **handlers:** address maintainer feedback on lines_of_code semantics ([7f0802a](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/7f0802a914ae7bcfe39d0b31310a4809b7427b44))
+* **handlers:** emit lines_of_code.count as session delta, add .total gauge ([9eaefc7](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/9eaefc7eaab3c5bdfdc2b66ae5056fc89025b249))
+
 ## [0.9.0](https://github.com/DEVtheOPS/opencode-plugin-otel/compare/v0.8.0...v0.9.0) (2026-05-01)
 
 
