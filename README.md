@@ -89,8 +89,8 @@ All configuration is via environment variables. Set them in your shell profile (
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OPENCODE_ENABLE_TELEMETRY` | *(unset)* | Set to any non-empty value to enable the plugin |
-| `OPENCODE_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP collector endpoint. For `grpc`, use the collector host/port. For `http/protobuf`, use the base URL and the plugin will append `/v1/traces`, `/v1/metrics`, and `/v1/logs`. |
-| `OPENCODE_OTLP_PROTOCOL` | `grpc` | OTLP transport protocol: `grpc` or `http/protobuf` |
+| `OPENCODE_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP collector endpoint. For `grpc`, use the collector host/port. For `http/protobuf` and `http/json`, use the base URL and the plugin will append `/v1/traces`, `/v1/metrics`, and `/v1/logs`. |
+| `OPENCODE_OTLP_PROTOCOL` | `grpc` | OTLP transport protocol: `grpc`, `http/protobuf`, or `http/json` |
 | `OPENCODE_OTLP_METRICS_INTERVAL` | `60000` | Metrics export interval in milliseconds |
 | `OPENCODE_OTLP_LOGS_INTERVAL` | `5000` | Logs export interval in milliseconds |
 | `OPENCODE_METRIC_PREFIX` | `opencode.` | Prefix for all metric names (e.g. set to `claude_code.` for Claude Code dashboard compatibility) |
@@ -111,7 +111,7 @@ export OPENCODE_OTLP_PROTOCOL=grpc
 opencode
 ```
 
-For `OPENCODE_OTLP_PROTOCOL=http/protobuf`, set `OPENCODE_OTLP_ENDPOINT` to the collector base URL rather than a per-signal path. The plugin expands it to `/v1/traces`, `/v1/metrics`, and `/v1/logs` automatically.
+For `OPENCODE_OTLP_PROTOCOL=http/protobuf` or `OPENCODE_OTLP_PROTOCOL=http/json`, set `OPENCODE_OTLP_ENDPOINT` to the collector base URL rather than a per-signal path. The plugin expands it to `/v1/traces`, `/v1/metrics`, and `/v1/logs` automatically.
 
 ### Headers and resource attributes
 

@@ -91,6 +91,11 @@ describe("loadConfig", () => {
     expect(loadConfig().protocol).toBe("http/protobuf")
   })
 
+  test("reads HTTP/json protocol", () => {
+    process.env["OPENCODE_OTLP_PROTOCOL"] = "http/json"
+    expect(loadConfig().protocol).toBe("http/json")
+  })
+
   test("falls back to grpc for unknown protocol", () => {
     process.env["OPENCODE_OTLP_PROTOCOL"] = "http"
     expect(loadConfig().protocol).toBe("grpc")

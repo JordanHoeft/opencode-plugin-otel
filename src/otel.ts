@@ -7,8 +7,11 @@ import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-grpc"
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-grpc"
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-grpc"
 import { OTLPLogExporter as OTLPHttpLogExporter } from "@opentelemetry/exporter-logs-otlp-http"
+import { OTLPLogExporter as OTLPProtoLogExporter } from "@opentelemetry/exporter-logs-otlp-proto"
 import { OTLPMetricExporter as OTLPHttpMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http"
+import { OTLPMetricExporter as OTLPProtoMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto"
 import { OTLPTraceExporter as OTLPHttpTraceExporter } from "@opentelemetry/exporter-trace-otlp-http"
+import { OTLPTraceExporter as OTLPProtoTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto"
 import { resourceFromAttributes } from "@opentelemetry/resources"
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions"
 import { ATTR_HOST_ARCH } from "@opentelemetry/semantic-conventions/incubating"
@@ -70,7 +73,7 @@ export function buildHttpSignalUrl(endpoint: string, signal: "traces" | "metrics
  */
 export async function setupOtel(
   endpoint: string,
-  protocol: "grpc" | "http/protobuf",
+  protocol: "grpc" | "http/protobuf" | "http/json",
   metricsInterval: number,
   logsInterval: number,
   version: string,
@@ -88,14 +91,20 @@ export async function setupOtel(
     }
   }
   const makeMetricExporter = (headers: HeadersMap) => protocol === "http/protobuf"
-    ? new OTLPHttpMetricExporter({ url: buildHttpSignalUrl(endpoint, "metrics"), headers })
-    : new OTLPMetricExporter({ url: endpoint, metadata: createGrpcMetadata(headers) })
+    ? new OTLPProtoMetricExporter({ url: buildHttpSignalUrl(endpoint, "metrics"), headers })
+    : protocol === "http/json"
+      ? new OTLPHttpMetricExporter({ url: buildHttpSignalUrl(endpoint, "metrics"), headers })
+      : new OTLPMetricExporter({ url: endpoint, metadata: createGrpcMetadata(headers) })
   const makeLogExporter = (headers: HeadersMap) => protocol === "http/protobuf"
-    ? new OTLPHttpLogExporter({ url: buildHttpSignalUrl(endpoint, "logs"), headers })
-    : new OTLPLogExporter({ url: endpoint, metadata: createGrpcMetadata(headers) })
+    ? new OTLPProtoLogExporter({ url: buildHttpSignalUrl(endpoint, "logs"), headers })
+    : protocol === "http/json"
+      ? new OTLPHttpLogExporter({ url: buildHttpSignalUrl(endpoint, "logs"), headers })
+      : new OTLPLogExporter({ url: endpoint, metadata: createGrpcMetadata(headers) })
   const makeTraceExporter = (headers: HeadersMap) => protocol === "http/protobuf"
-    ? new OTLPHttpTraceExporter({ url: buildHttpSignalUrl(endpoint, "traces"), headers })
-    : new OTLPTraceExporter({ url: endpoint, metadata: createGrpcMetadata(headers) })
+    ? new OTLPProtoTraceExporter({ url: buildHttpSignalUrl(endpoint, "traces"), headers })
+    : protocol === "http/json"
+      ? new OTLPHttpTraceExporter({ url: buildHttpSignalUrl(endpoint, "traces"), headers })
+      : new OTLPTraceExporter({ url: endpoint, metadata: createGrpcMetadata(headers) })
   const metricExporter = otlpHeadersHelper
     ? new RefreshingMetricExporter(makeMetricExporter, dynamicHeaders)
     : makeMetricExporter(staticHeaders)

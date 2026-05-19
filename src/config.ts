@@ -14,7 +14,7 @@ export type PluginConfig = {
   enabled: boolean
   logsEnabled: boolean
   endpoint: string
-  protocol: "grpc" | "http/protobuf"
+  protocol: "grpc" | "http/protobuf" | "http/json"
   metricsInterval: number
   logsInterval: number
   metricPrefix: string
@@ -98,7 +98,11 @@ export function loadConfig(): PluginConfig {
     enabled: hasNonEmptyEnv("OPENCODE_ENABLE_TELEMETRY"),
     logsEnabled: !hasNonEmptyEnv("OPENCODE_DISABLE_LOGS"),
     endpoint: process.env["OPENCODE_OTLP_ENDPOINT"] ?? "http://localhost:4317",
-    protocol: protocol === "http/protobuf" ? "http/protobuf" : "grpc",
+    protocol: protocol === "http/protobuf"
+      ? "http/protobuf"
+      : protocol === "http/json"
+        ? "http/json"
+        : "grpc",
     metricsInterval: parseEnvInt("OPENCODE_OTLP_METRICS_INTERVAL", 60000),
     logsInterval: parseEnvInt("OPENCODE_OTLP_LOGS_INTERVAL", 5000),
     metricPrefix: process.env["OPENCODE_METRIC_PREFIX"] ?? "opencode.",
