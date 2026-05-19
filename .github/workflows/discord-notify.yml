@@ -1,0 +1,160 @@
+name: Discord Notify
+
+on:
+  workflow_call:
+    inputs:
+      username:
+        description: Discord webhook username
+        required: false
+        default: DEVtheOPS Bot
+        type: string
+      avatar_url:
+        description: Discord webhook avatar URL
+        required: false
+        default: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+        type: string
+      color:
+        description: Decimal embed color override
+        required: false
+        default: "5793266"
+        type: string
+      title_prefix:
+        description: Optional prefix added to the embed title
+        required: false
+        default: ""
+        type: string
+      include_body:
+        description: Include issue, PR, or release body in the embed description
+        required: false
+        default: true
+        type: boolean
+    secrets:
+      discord_webhook:
+        description: Discord webhook URL
+        required: true
+
+jobs:
+  notify:
+    name: Send Discord notification
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Build payload
+        id: payload
+        uses: actions/github-script@v7
+        env:
+          DISCORD_USERNAME: ${{ inputs.username }}
+          DISCORD_AVATAR_URL: ${{ inputs.avatar_url }}
+          DISCORD_COLOR: ${{ inputs.color }}
+          DISCORD_TITLE_PREFIX: ${{ inputs.title_prefix }}
+          DISCORD_INCLUDE_BODY: ${{ inputs.include_body }}
+        with:
+          script: |
+            const eventName = context.eventName;
+            const action = context.payload.action || "";
+            const repo = context.repo;
+            const prefix = process.env.DISCORD_TITLE_PREFIX || "";
+            const defaultColor = Number.parseInt(process.env.DISCORD_COLOR || "5793266", 10) || 5793266;
+            const includeBody = (process.env.DISCORD_INCLUDE_BODY || "true") === "true";
+
+            const truncate = (value, limit) => {
+              if (!value) return "";
+              const normalized = String(value).replace(/\r\n/g, "\n").trim();
+              if (!normalized) return "";
+              return normalized.length > limit ? `${normalized.slice(0, limit - 1)}…` : normalized;
+            };
+
+            const author = {
+              name: `${repo.owner}/${repo.repo}`,
+              url: `https://github.com/${repo.owner}/${repo.repo}`,
+              icon_url: `https://github.com/${repo.owner}.png`
+            };
+
+            const fields = [
+              { name: "Repository", value: `[${repo.owner}/${repo.repo}](https://github.com/${repo.owner}/${repo.repo})`, inline: true },
+              { name: "Actor", value: `[${context.actor}](https://github.com/${context.actor})`, inline: true },
+              { name: "Event", value: `${eventName}${action ? `.${action}` : ""}`, inline: true }
+            ];
+
+            let title = `GitHub event in ${repo.repo}`;
+            let url = `https://github.com/${repo.owner}/${repo.repo}`;
+            let description = "";
+            let color = defaultColor;
+
+            if (eventName === "issues" && context.payload.issue) {
+              const issue = context.payload.issue;
+              title = `Issue #${issue.number} opened: ${issue.title}`;
+              url = issue.html_url;
+              description = includeBody ? truncate(issue.body, 4000) : "";
+              color = 16098851;
+              fields.push(
+                { name: "Author", value: `[${issue.user.login}](${issue.user.html_url})`, inline: true },
+                { name: "Labels", value: issue.labels.length ? issue.labels.map((label) => label.name).join(", ") : "None", inline: true }
+              );
+            }
+
+            if (eventName === "pull_request" && context.payload.pull_request) {
+              const pr = context.payload.pull_request;
+              title = `PR #${pr.number} opened: ${pr.title}`;
+              url = pr.html_url;
+              description = includeBody ? truncate(pr.body, 4000) : "";
+              color = 3447003;
+              fields.push(
+                { name: "Author", value: `[${pr.user.login}](${pr.user.html_url})`, inline: true },
+                { name: "Branch", value: `\`${pr.head.ref}\` -> \`${pr.base.ref}\``, inline: true }
+              );
+            }
+
+            if (eventName === "release" && context.payload.release) {
+              const release = context.payload.release;
+              title = `Release published: ${release.name || release.tag_name}`;
+              url = release.html_url;
+              description = includeBody ? truncate(release.body, 4000) : "";
+              color = 10181046;
+              fields.push(
+                { name: "Tag", value: `\`${release.tag_name}\``, inline: true },
+                { name: "Prerelease", value: release.prerelease ? "Yes" : "No", inline: true }
+              );
+            }
+
+            if (prefix) {
+              title = `${prefix} ${title}`;
+            }
+
+            const payload = {
+              username: process.env.DISCORD_USERNAME || "DEVtheOPS Bot",
+              avatar_url: process.env.DISCORD_AVATAR_URL || "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+              embeds: [
+                {
+                  title,
+                  url,
+                  description,
+                  color,
+                  author,
+                  fields,
+                  timestamp: new Date().toISOString(),
+                  footer: {
+                    text: "GitHub Actions"
+                  }
+                }
+              ]
+            };
+
+            core.setOutput("json", JSON.stringify(payload));
+
+      - name: Post to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.discord_webhook }}
+          DISCORD_PAYLOAD: ${{ steps.payload.outputs.json }}
+        run: |
+          curl --fail --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --retry 3 \
+            --retry-delay 2 \
+            -H "Content-Type: application/json" \
+            -d "$DISCORD_PAYLOAD" \
+            "$DISCORD_WEBHOOK"

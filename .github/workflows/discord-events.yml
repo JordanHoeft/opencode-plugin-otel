@@ -1,0 +1,20 @@
+name: Discord Events
+
+on:
+  issues:
+    types:
+      - opened
+  pull_request:
+    types:
+      - opened
+  release:
+    types:
+      - published
+
+jobs:
+  notify-discord:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    permissions: {}
+    uses: ./.github/workflows/discord-notify.yml
+    secrets:
+      discord_webhook: ${{ secrets.DISCORD_WEBHOOK }}

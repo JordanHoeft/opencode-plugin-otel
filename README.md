@@ -4,6 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@devtheops/opencode-plugin-otel.svg)](https://www.npmjs.com/package/@devtheops/opencode-plugin-otel)
 [![GitHub stars](https://img.shields.io/github/stars/DEVtheOPS/opencode-plugin-otel.svg)](https://github.com/DEVtheOPS/opencode-plugin-otel/stargazers)
 [![Build status](https://img.shields.io/github/actions/workflow/status/DEVtheOPS/opencode-plugin-otel/release-please.yml?branch=main)](https://github.com/DEVtheOPS/opencode-plugin-otel/actions/workflows/release-please.yml)
+[![Discord notifications](https://img.shields.io/badge/discord-notifications-5865F2?logo=discord&logoColor=white)](https://discord.gg/zavuskz8xB)
 [![License](https://img.shields.io/npm/l/@devtheops/opencode-plugin-otel.svg)](https://github.com/DEVtheOPS/opencode-plugin-otel/blob/main/LICENSE)
 
 An [opencode](https://opencode.ai) plugin that exports telemetry via OpenTelemetry (OTLP over gRPC or HTTP/protobuf), mirroring the same signals as [Claude Code's monitoring](https://code.claude.com/docs/en/monitoring-usage).
@@ -24,6 +25,7 @@ An [opencode](https://opencode.ai) plugin that exports telemetry via OpenTelemet
   - [Honeycomb example](#honeycomb-example)
   - [Claude Code dashboard compatibility](#claude-code-dashboard-compatibility)
 - [Local development](#local-development)
+- [GitHub Discord notifications](#github-discord-notifications)
 
 ## What it instruments
 
@@ -34,7 +36,8 @@ An [opencode](https://opencode.ai) plugin that exports telemetry via OpenTelemet
 | `opencode.session.count` | Counter | Incremented on each `session.created` event |
 | `opencode.token.usage` | Counter | Per token type: `input`, `output`, `reasoning`, `cacheRead`, `cacheCreation` |
 | `opencode.cost.usage` | Counter | USD cost per completed assistant message |
-| `opencode.lines_of_code.count` | Counter | Lines added/removed per `session.diff` event |
+| `opencode.lines_of_code.count` | Counter | **Gross positive churn, not a net total.** Emits the positive delta of `additions`/`deletions` since the previous `session.diff` for the same session; negative deltas (when opencode's cumulative `additions` or `deletions` shrinks vs. the last event) are dropped. Summing the counter therefore reports gross lines added/removed across forward transitions — it does *not* reconcile back to the session's current state after any revert (full or partial). Intra-message rewrites that opencode collapses in its per-message cumulative are not visible here at all. Use `opencode.lines_of_code.total` for the authoritative live cumulative. |
+| `opencode.lines_of_code.total` | Gauge | **Authoritative live cumulative lines added/removed for the session.** Refreshed on every `session.diff` with opencode's current cumulative value. Drops back to `0` if opencode reports a revert to baseline, and tracks partial reverts faithfully. Query this (not the counter) to answer "what does this session currently amount to". |
 | `opencode.commit.count` | Counter | Git commits detected via bash tool |
 | `opencode.tool.duration` | Histogram | Tool execution time in milliseconds |
 | `opencode.cache.count` | Counter | Cache activity per message: `type=cacheRead` or `type=cacheCreation` |
@@ -85,19 +88,19 @@ All configuration is via environment variables. Set them in your shell profile (
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENCODE_ENABLE_TELEMETRY` | _(unset)_ | Set to any non-empty value to enable the plugin |
+| `OPENCODE_ENABLE_TELEMETRY` | *(unset)* | Set to any non-empty value to enable the plugin |
 | `OPENCODE_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP collector endpoint. For `grpc`, use the collector host/port. For `http/protobuf`, use the base URL and the plugin will append `/v1/traces`, `/v1/metrics`, and `/v1/logs`. |
 | `OPENCODE_OTLP_PROTOCOL` | `grpc` | OTLP transport protocol: `grpc` or `http/protobuf` |
 | `OPENCODE_OTLP_METRICS_INTERVAL` | `60000` | Metrics export interval in milliseconds |
 | `OPENCODE_OTLP_LOGS_INTERVAL` | `5000` | Logs export interval in milliseconds |
 | `OPENCODE_METRIC_PREFIX` | `opencode.` | Prefix for all metric names (e.g. set to `claude_code.` for Claude Code dashboard compatibility) |
-| `OPENCODE_DISABLE_METRICS` | _(unset)_ | Comma-separated list of metric name suffixes to disable (e.g. `cache.count,session.duration`) |
-| `OPENCODE_DISABLE_LOGS` | _(unset)_ | Set to any non-empty value to suppress all OTLP log events while leaving metrics and traces unchanged |
-| `OPENCODE_DISABLE_TRACES` | _(unset)_ | Comma-separated list of trace types to disable (`session`, `llm`, `tool`). Use `all`, `*`, `true`, or `1` to disable every trace type |
-| `OPENCODE_OTLP_HEADERS` | _(unset)_ | Comma-separated `key=value` headers added to all OTLP exports. **Keep out of version control — may contain sensitive auth tokens.** |
-| `OPENCODE_OTLP_HEADERS_HELPER` | _(unset)_ | Executable script/binary that returns dynamic OTLP headers as JSON after an auth failure. Helper headers override `OPENCODE_OTLP_HEADERS`. |
-| `OPENCODE_RESOURCE_ATTRIBUTES` | _(unset)_ | Comma-separated `key=value` pairs merged into the OTel resource. Example: `service.version=1.2.3,deployment.environment=production` |
-| `OPENCODE_OTLP_METRICS_TEMPORALITY` | _(unset)_ | Metrics aggregation temporality: `delta`, `cumulative`, or `lowmemory`. Required for Datadog (`delta`). Copied to `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE`. |
+| `OPENCODE_DISABLE_METRICS` | *(unset)* | Comma-separated list of metric name suffixes to disable (e.g. `cache.count,session.duration`) |
+| `OPENCODE_DISABLE_LOGS` | *(unset)* | Set to any non-empty value to suppress all OTLP log events while leaving metrics and traces unchanged |
+| `OPENCODE_DISABLE_TRACES` | *(unset)* | Comma-separated list of trace types to disable (`session`, `llm`, `tool`). Use `all`, `*`, `true`, or `1` to disable every trace type |
+| `OPENCODE_OTLP_HEADERS` | *(unset)* | Comma-separated `key=value` headers added to all OTLP exports. **Keep out of version control — may contain sensitive auth tokens.** |
+| `OPENCODE_OTLP_HEADERS_HELPER` | *(unset)* | Executable script/binary that returns dynamic OTLP headers as JSON after an auth failure. Helper headers override `OPENCODE_OTLP_HEADERS`. |
+| `OPENCODE_RESOURCE_ATTRIBUTES` | *(unset)* | Comma-separated `key=value` pairs merged into the OTel resource. Example: `service.version=1.2.3,deployment.environment=production` |
+| `OPENCODE_OTLP_METRICS_TEMPORALITY` | *(unset)* | Metrics aggregation temporality: `delta`, `cumulative`, or `lowmemory`. Required for Datadog (`delta`). Copied to `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE`. |
 
 ### Quick start
 
@@ -159,6 +162,9 @@ export OPENCODE_DISABLE_METRICS="retry.count"
 
 # Disable multiple metrics
 export OPENCODE_DISABLE_METRICS="cache.count,session.duration,session.token.total,session.cost.total,model.usage,retry.count,message.count"
+
+# Disable the new per-session cumulative gauge while keeping the delta counter
+export OPENCODE_DISABLE_METRICS="lines_of_code.total"
 ```
 
 #### opencode-only metrics
@@ -215,7 +221,7 @@ export OPENCODE_OTLP_HEADERS="signoz-ingestion-key=<SIGNOZ_INGESTION_KEY>"
 ```
 
 > Use `https://ingest.in.signoz.cloud:443` for India, `https://ingest.eu2.signoz.cloud:443` for EU2, etc.
-> See [SigNoz setup docs](https://signoz.io/docs/cloud/) for all regions. 
+> See [SigNoz setup docs](https://signoz.io/docs/cloud/) for all regions.
 
 ### Datadog example
 
@@ -259,3 +265,45 @@ export OPENCODE_METRIC_PREFIX=claude_code.
 ## Local development
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## GitHub Discord notifications
+
+This repo includes a reusable workflow at `.github/workflows/discord-notify.yml` that posts a Discord embed for supported GitHub events. The included `.github/workflows/discord-events.yml` file wires it up for:
+
+- `issues.opened`
+- `pull_request.opened`
+- `release.published`
+
+Set an org or repo secret named `DISCORD_WEBHOOK` and the workflow will post to that webhook automatically.
+
+To reuse it from another repository in the `DEVtheOPS` org:
+
+```yaml
+name: Discord Events
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+  release:
+    types: [published]
+
+jobs:
+  notify-discord:
+    uses: DEVtheOPS/opencode-plugin-otel/.github/workflows/discord-notify.yml@main
+    with:
+      username: DEVtheOPS Bot
+      title_prefix: "[DEVtheOPS]"
+      include_body: true
+    secrets:
+      discord_webhook: ${{ secrets.DISCORD_WEBHOOK }}
+```
+
+Available workflow inputs:
+
+- `username`: webhook display name
+- `avatar_url`: webhook avatar image URL
+- `title_prefix`: optional title prefix for the embed
+- `include_body`: include the issue, PR, or release body in the card
+- `color`: fallback embed color for unsupported events

@@ -94,6 +94,7 @@ export const OtelPlugin: Plugin = async ({ project, client, directory, worktree 
   const pendingToolSpans = new Map()
   const pendingPermissions = new Map()
   const sessionTotals = new Map()
+  const sessionDiffTotals = new Map()
   const sessionSpans = new Map()
   const messageSpans = new Map()
   const sessionInputs = new Map()
@@ -121,6 +122,7 @@ export const OtelPlugin: Plugin = async ({ project, client, directory, worktree 
     pendingToolSpans,
     pendingPermissions,
     sessionTotals,
+    sessionDiffTotals,
     disabledMetrics,
     disabledTraces,
     tracer,
