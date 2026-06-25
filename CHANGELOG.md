@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [1.2.1](https://github.com/DEVtheOPS/opencode-plugin-otel/compare/v1.2.0...v1.2.1) (2026-06-25)
+
+
+### Bug Fixes
+
+* **tracing:** key runs by user message id ([0e43ecc](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/0e43ecc54d79916db50bd119d76efe8d61fad433))
+* **tracing:** scope root spans to runs ([8e8e5ca](https://github.com/DEVtheOPS/opencode-plugin-otel/commit/8e8e5ca78dac39da32016c1fe3eb8fac59625634))
+
 ## [1.2.0](https://github.com/DEVtheOPS/opencode-plugin-otel/compare/v1.1.0...v1.2.0) (2026-06-20)
 
 
