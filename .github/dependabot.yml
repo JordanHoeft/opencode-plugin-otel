@@ -7,6 +7,8 @@ version: 2
 updates:
   - package-ecosystem: "bun" # See documentation for possible values
     directory: "/" # Location of package manifests
-    group-by: dependency-name
     schedule:
       interval: "weekly"
+    groups:
+      dependencies:
+        group-by: dependency-name
