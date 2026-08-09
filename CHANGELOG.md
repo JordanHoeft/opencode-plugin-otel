@@ -6,6 +6,85 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 ---
 
+## [2.0.0](https://github.com/JordanHoeft/opencode-plugin-otel/compare/v1.5.1...v2.0.0) (2026-08-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **handlers:** opencode.lines_of_code.count semantics have changed. Dashboards that sum() the counter previously saw inflated numbers; they will now see the correct net session totals. Existing queries do not need to change, but the numeric results will be smaller (and correct).
+* package name changed from opencode-plugin-otel to @devtheops/opencode-plugin-otel
+
+### Features
+
+* add prompt logging release metadata ([#114](https://github.com/JordanHoeft/opencode-plugin-otel/issues/114)) ([63970d8](https://github.com/JordanHoeft/opencode-plugin-otel/commit/63970d868acea8615dfb97a497d6b19db2941ccd))
+* **ci:** add release workflow and clean up plugin packaging ([8f40e61](https://github.com/JordanHoeft/opencode-plugin-otel/commit/8f40e61bad47b586bc3d6b5ecfb496b29610efd1))
+* **config:** add OPENCODE_DISABLE_METRICS to suppress individual metrics ([8ec7c48](https://github.com/JordanHoeft/opencode-plugin-otel/commit/8ec7c486d102921829a26d1f377df6aa20d988ad))
+* **config:** add OPENCODE_DISABLE_METRICS to suppress individual metrics ([2df1376](https://github.com/JordanHoeft/opencode-plugin-otel/commit/2df13762a406040cca464caa5b6b7866bbcc516d))
+* **config:** add OPENCODE_DISABLE_TRACES for per-type trace suppression ([89cb9b9](https://github.com/JordanHoeft/opencode-plugin-otel/commit/89cb9b9b9b1f79559f3930a2017ca16f513785b3))
+* **config:** support OPENCODE_SPAN_ATTRIBUTES ([93866c5](https://github.com/JordanHoeft/opencode-plugin-otel/commit/93866c5b09788f3a3f1b9162be0ed028196c4e83))
+* **config:** support plugin tuple options ([f8be232](https://github.com/JordanHoeft/opencode-plugin-otel/commit/f8be2328642beb50b093a52477e8621aa07f76ba))
+* **handlers:** add agent metadata to logs and spans ([c2759e9](https://github.com/JordanHoeft/opencode-plugin-otel/commit/c2759e97401f1460ab8143cb04f2d0fb2fb05e29))
+* **handlers:** add agent usage metrics and sub-agent tracking ([2d12f88](https://github.com/JordanHoeft/opencode-plugin-otel/commit/2d12f8846425075c4d8aac1573ac6e488bf868c3))
+* **handlers:** add agent usage metrics and sub-agent tracking ([5dedc4e](https://github.com/JordanHoeft/opencode-plugin-otel/commit/5dedc4eb81fa6f36ff8cc883952247a0023d0ceb))
+* **main:** opt-in prompt logging ([3530cfe](https://github.com/JordanHoeft/opencode-plugin-otel/commit/3530cfeda46a3c40f9f4fcd654147ce8f190b6cb))
+* **observability:** add debug logging and enhanced metrics ([a1b0a8c](https://github.com/JordanHoeft/opencode-plugin-otel/commit/a1b0a8cf5263080cf9623355e5161fb88f20e2f1))
+* **observability:** add debug logging and enhanced metrics (v0.3.0) ([46681d8](https://github.com/JordanHoeft/opencode-plugin-otel/commit/46681d816dbe34049ef9abccc35cc5b023d5fbdd))
+* **otel:** add explicit signal disable controls ([707a546](https://github.com/JordanHoeft/opencode-plugin-otel/commit/707a54662f823d689bcb2fc026cf82ee18d6620c))
+* **otel:** add OTLP HTTP exporter support ([d679862](https://github.com/JordanHoeft/opencode-plugin-otel/commit/d679862a88df831685e142fb0cb40db16225d5c8))
+* **otel:** prewarm dynamic OTLP headers helper ([6f62b8b](https://github.com/JordanHoeft/opencode-plugin-otel/commit/6f62b8bc03382c2d451d0538d72dffb44757b16c))
+* **otel:** refresh dynamic headers on auth failure ([b65dd2e](https://github.com/JordanHoeft/opencode-plugin-otel/commit/b65dd2e157a6e87b77f2641df63407256f300f82))
+* release workflow, OPENCODE_* env var cleanup, and packaging improvements ([#1](https://github.com/JordanHoeft/opencode-plugin-otel/issues/1)) ([687cbe1](https://github.com/JordanHoeft/opencode-plugin-otel/commit/687cbe1c070d2e154ea17093138001c76c6068d1))
+* rename package to @devtheops/opencode-plugin-otel ([f0af602](https://github.com/JordanHoeft/opencode-plugin-otel/commit/f0af602cb945cd677e0dbc552dc01c5d29e8d9fd))
+* **telemetry:** add canonical GenAI provider names ([39f40fe](https://github.com/JordanHoeft/opencode-plugin-otel/commit/39f40fe211ac4beaafadffd3c7e1cab11c41e92c))
+* **traces:** align spans with OpenInference semantics ([ce6ca28](https://github.com/JordanHoeft/opencode-plugin-otel/commit/ce6ca28100ab65eb6e28ce8842c5d0f641e6bd59))
+* **trace:** support remote W3C parent context ([1da0a85](https://github.com/JordanHoeft/opencode-plugin-otel/commit/1da0a857e9303a8f7020f20627d01fecb95cfad0))
+* **trace:** support remote W3C parent context ([83e3d42](https://github.com/JordanHoeft/opencode-plugin-otel/commit/83e3d4211400eb49520c7b58bcaeff262763e799))
+* **tracing:** add OpenTelemetry traces with gen_ai.* and tool spans ([0a00b43](https://github.com/JordanHoeft/opencode-plugin-otel/commit/0a00b43c714c45146ac93b9077c478127727e6ce))
+* **tracing:** add OpenTelemetry traces with gen_ai.* and tool spans ([6c848a7](https://github.com/JordanHoeft/opencode-plugin-otel/commit/6c848a7bca237ab60e7035244d4889dae44560ca)), closes [#19](https://github.com/JordanHoeft/opencode-plugin-otel/issues/19)
+* **tracing:** propagate context to LLM providers ([060e403](https://github.com/JordanHoeft/opencode-plugin-otel/commit/060e403f5c89e7d2b90dc93389f01651fc938637))
+
+
+### Bug Fixes
+
+* Add oc-plugin key to package.json ([9975938](https://github.com/JordanHoeft/opencode-plugin-otel/commit/997593887d055715a1429bd9b0d3d30c23516111))
+* add OPENCODE_OTLP_METRICS_TEMPORALITY and fix Datadog example ([dbbf5e9](https://github.com/JordanHoeft/opencode-plugin-otel/commit/dbbf5e93b88089344a0887ce39fa91d08c5b61b2))
+* Added oc-plugin key to package.json ([db66f87](https://github.com/JordanHoeft/opencode-plugin-otel/commit/db66f87d6a08fd0ee0b6d11e362ca6e4c60c3e5a))
+* added protobuf exporters from [@opentelemetry](https://github.com/opentelemetry) ([19e600f](https://github.com/JordanHoeft/opencode-plugin-otel/commit/19e600f31c3e70cf21d6ec5c145aad67edbd022f))
+* bundle plugin to JS for server mode compatibility ([37a86e8](https://github.com/JordanHoeft/opencode-plugin-otel/commit/37a86e8188c09162129bcc22e3a4254ab5aacb33)), closes [#35](https://github.com/JordanHoeft/opencode-plugin-otel/issues/35)
+* **ci:** align Discord workflow permissions ([0af2755](https://github.com/JordanHoeft/opencode-plugin-otel/commit/0af275586cb50631419a1c3f122acb07993193e5))
+* **ci:** fix indentation in changelog extraction step ([9b9b01e](https://github.com/JordanHoeft/opencode-plugin-otel/commit/9b9b01efd34312e964c1041fe84a199b2ce98c1c))
+* **ci:** remove NODE_AUTH_TOKEN to allow OIDC trusted publishing ([fa4cbc7](https://github.com/JordanHoeft/opencode-plugin-otel/commit/fa4cbc72d5e32ac471f3291b154f5b7c1c5aa097))
+* **ci:** skip checks for release pull requests ([#116](https://github.com/JordanHoeft/opencode-plugin-otel/issues/116)) ([2b2d852](https://github.com/JordanHoeft/opencode-plugin-otel/commit/2b2d852aa4c56af36a63df31be2b0a564fa9eb9f))
+* **ci:** use compatible Node version for npm publish ([b01abdf](https://github.com/JordanHoeft/opencode-plugin-otel/commit/b01abdf5b6c4e1862ccd5ca6edc8cf552329f897))
+* **config:** address code review findings on disable-metrics feature ([1929327](https://github.com/JordanHoeft/opencode-plugin-otel/commit/1929327d29eb130280625b41d2a3d36be1cdc52f))
+* **config:** preserve canonical project.id ([0d02eac](https://github.com/JordanHoeft/opencode-plugin-otel/commit/0d02eac390e307fd71cc270c63711f026815667b))
+* **config:** reject partial numeric strings in parseEnvInt ([92bb54a](https://github.com/JordanHoeft/opencode-plugin-otel/commit/92bb54adf4519469cfb9b2327c0411caf466a7e3))
+* **config:** rename all env vars to OPENCODE_* prefix ([63ca65a](https://github.com/JordanHoeft/opencode-plugin-otel/commit/63ca65aa29dd6f771b5ad104fbf2d0aaac18fb84))
+* **deps:** move TypeScript to dev dependencies ([#118](https://github.com/JordanHoeft/opencode-plugin-otel/issues/118)) ([4fcf511](https://github.com/JordanHoeft/opencode-plugin-otel/commit/4fcf511b19553e9889216e23c90184feb218b86e))
+* emit TypeScript declarations alongside bundled JS ([ce22030](https://github.com/JordanHoeft/opencode-plugin-otel/commit/ce22030d975777d43a21d4e15de2c29091c15d7d))
+* flush telemetry for short-lived runs ([df37dd0](https://github.com/JordanHoeft/opencode-plugin-otel/commit/df37dd053b8386b95f1fba7a2042f4a83fce0539))
+* **handlers:** address code-review feedback on lines_of_code semantics ([a25022c](https://github.com/JordanHoeft/opencode-plugin-otel/commit/a25022c17cb912dedfe0dcd3b092db7bbee97e85))
+* **handlers:** address maintainer feedback on lines_of_code semantics ([7f0802a](https://github.com/JordanHoeft/opencode-plugin-otel/commit/7f0802a914ae7bcfe39d0b31310a4809b7427b44))
+* **handlers:** emit lines_of_code.count as session delta, add .total gauge ([9eaefc7](https://github.com/JordanHoeft/opencode-plugin-otel/commit/9eaefc7eaab3c5bdfdc2b66ae5056fc89025b249))
+* Normalize token and cost units for Claude compatibility ([a8b35dc](https://github.com/JordanHoeft/opencode-plugin-otel/commit/a8b35dc65e84c646b40abccc534afb6110ba2f26))
+* **otel:** harden dynamic header helper ([2810d31](https://github.com/JordanHoeft/opencode-plugin-otel/commit/2810d31acf148735c1faef8130e571766ebeaab5))
+* **otel:** normalize session token and cost units ([12bfafe](https://github.com/JordanHoeft/opencode-plugin-otel/commit/12bfafe6b5c31c9a8ec8db09b1cd3c83a8b39ad4))
+* **otel:** normalize token and cost units for claude compatibility ([aa3deca](https://github.com/JordanHoeft/opencode-plugin-otel/commit/aa3deca8cd3323a5d1f9fc749b43d0992f1ba50a))
+* **otel:** use cents-scale bucket boundaries for session.cost.total histogram ([b5d4185](https://github.com/JordanHoeft/opencode-plugin-otel/commit/b5d41858b678ab684bbff9337f1bbc1340cac24a))
+* **otel:** use UCUM-compliant unit strings for all metric instruments ([46681d8](https://github.com/JordanHoeft/opencode-plugin-otel/commit/46681d816dbe34049ef9abccc35cc5b023d5fbdd))
+* **otel:** use UCUM-compliant unit strings for all metric instruments ([040b0b3](https://github.com/JordanHoeft/opencode-plugin-otel/commit/040b0b3f8b353785e976bbfd59d43250bfb58ef6))
+* preserve bounded map updates ([9fff36f](https://github.com/JordanHoeft/opencode-plugin-otel/commit/9fff36f90b61a04ee0138a6e8cfca8e9bc66858e))
+* **probe:** reject scheme-less endpoint URLs ([df7a62b](https://github.com/JordanHoeft/opencode-plugin-otel/commit/df7a62b3cd801f753d4a03342fc178fb4aac2874))
+* **probe:** use protocol-aware default port for endpoint probing ([fa0e6ac](https://github.com/JordanHoeft/opencode-plugin-otel/commit/fa0e6ac6d48758f5729834f96257727250cbf2d2))
+* **probe:** use protocol-aware default port for endpoint probing ([73ae4d0](https://github.com/JordanHoeft/opencode-plugin-otel/commit/73ae4d05c13cc6b4d34140a87d555ad7efbf37e8))
+* **tests:** address CodeRabbit review findings ([dfeba19](https://github.com/JordanHoeft/opencode-plugin-otel/commit/dfeba199f39bf9c450c7d0fcc87b4501d90ccc1a))
+* **traces:** apply metricPrefix to opencode span names and fix out-of-order parentage ([65f1e70](https://github.com/JordanHoeft/opencode-plugin-otel/commit/65f1e70ec592a571dd5fd410769920cc5c6e1142))
+* **tracing:** key runs by user message id ([0e43ecc](https://github.com/JordanHoeft/opencode-plugin-otel/commit/0e43ecc54d79916db50bd119d76efe8d61fad433))
+* **tracing:** prefer current LLM request context ([ba7a3af](https://github.com/JordanHoeft/opencode-plugin-otel/commit/ba7a3af2556a35e1b7f2287efa994b05467ccd56))
+* **tracing:** preserve concurrent LLM contexts ([d755fe3](https://github.com/JordanHoeft/opencode-plugin-otel/commit/d755fe30c6c5afb7e36c03a8e37c1ba2b62c30b3))
+* **tracing:** scope root spans to runs ([8e8e5ca](https://github.com/JordanHoeft/opencode-plugin-otel/commit/8e8e5ca78dac39da32016c1fe3eb8fac59625634))
+* use prepack instead of prepublishOnly ([bd7a4f9](https://github.com/JordanHoeft/opencode-plugin-otel/commit/bd7a4f9b57a6016113e14713e60c666f5bab95d3))
+
 ## [1.5.1](https://github.com/DEVtheOPS/opencode-plugin-otel/compare/v1.5.0...v1.5.1) (2026-08-09)
 
 
